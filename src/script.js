@@ -15,7 +15,7 @@ let currentGameId = null;
 let currentPlayer = null;
 let scores = { "X": 0, "O": 0 };
 
-// 나머지 코드 (drawBoard, handleClick 등)는 이전과 동일하게 유지
+// 나머지 코드 동일
 function drawBoard(boardState = Array(25).fill("0")) {
   const board = document.getElementById("game-board");
   board.innerHTML = "";

@@ -1,0 +1,7 @@
+{
+  "name": "tic-tac-toe-game",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "node replace-env.js && cp -r src/* dist/"
+  }
+}
