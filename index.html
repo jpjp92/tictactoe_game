@@ -1,34 +1,33 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Tic Tac Toe</title>
-  <link rel="stylesheet" href="style.css">
-  <script>
-    // Vercel 환경 변수를 전역 객체로 주입
-    window.env = {
-      VITE_SUPABASE_URL: "${VITE_SUPABASE_URL}",
-      VITE_SUPABASE_ANON_KEY: "${VITE_SUPABASE_ANON_KEY}"
-    };
-  </script>
-</head>
-<body>
-  <h1>Tic Tac Toe</h1>
-  <div id="scoreboard">
-    <div class="score"><span class="x">X</span>: <span id="x-score">0</span></div>
-    <div class="score"><span class="o">O</span>: <span id="o-score">0</span></div>
-  </div>
-  <div id="game-board"></div>
-  <p id="status">Waiting for game...</p>
-  <div>
-    <input id="game-code" type="text" placeholder="Enter game code">
-    <button onclick="joinGame()">Join Game</button>
-    <button onclick="createGame()">Create Game</button>
-  </div>
-  <button id="restart">Restart Game</button>
+   <html lang="en">
+   <head>
+     <meta charset="UTF-8" />
+     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+     <title>Tic Tac Toe</title>
+     <link rel="stylesheet" href="style.css">
+     <script>
+       window.env = {
+         VITE_SUPABASE_URL: "${VITE_SUPABASE_URL}",
+         VITE_SUPABASE_ANON_KEY: "${VITE_SUPABASE_ANON_KEY}"
+       };
+     </script>
+   </head>
+   <body>
+     <h1>Tic Tac Toe</h1>
+     <div id="scoreboard">
+       <div class="score"><span class="x">X</span>: <span id="x-score">0</span></div>
+       <div class="score"><span class="o">O</span>: <span id="o-score">0</span></div>
+     </div>
+     <div id="game-board"></div>
+     <p id="status">Waiting for game...</p>
+     <div>
+       <input id="game-code" type="text" placeholder="Enter game code">
+       <button onclick="joinGame()">Join Game</button>
+       <button onclick="createGame()">Create Game</button>
+     </div>
+     <button id="restart">Restart Game</button>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="script.js"></script>
-</body>
-</html>
+     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+     <script src="script.js"></script>
+   </body>
+   </html>
