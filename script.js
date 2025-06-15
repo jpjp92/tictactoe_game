@@ -1,6 +1,5 @@
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-const supabase = Supabase.createClient(supabaseUrl, supabaseAnonKey);
+const { VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY } = window.env;
+const supabase = window.Supabase.createClient(VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY);
 let currentGameId = null;
 let currentPlayer = null;
 let scores = { "X": 0, "O": 0 };
