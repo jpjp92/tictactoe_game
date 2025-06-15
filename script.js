@@ -1,9 +1,21 @@
 const { VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY } = window.env;
+
+console.log('VITE_SUPABASE_URL:', VITE_SUPABASE_URL);
+console.log('VITE_SUPABASE_ANON_KEY:', VITE_SUPABASE_ANON_KEY);
+
+if (!VITE_SUPABASE_URL || !VITE_SUPABASE_ANON_KEY) {
+  console.error('Environment variables are not properly set:', { VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY });
+  throw new Error('Missing or invalid Supabase credentials');
+}
+
 const supabase = window.supabase.createClient(VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY);
+console.log('Supabase client initialized with URL:', VITE_SUPABASE_URL);
+
 let currentGameId = null;
 let currentPlayer = null;
 let scores = { "X": 0, "O": 0 };
 
+// 나머지 코드 (drawBoard, handleClick 등)는 이전과 동일하게 유지
 function drawBoard(boardState = Array(25).fill("0")) {
   const board = document.getElementById("game-board");
   board.innerHTML = "";
