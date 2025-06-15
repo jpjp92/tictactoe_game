@@ -1,4 +1,5 @@
-const { supabaseUrl, supabaseAnonKey } = secrets;
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const supabase = Supabase.createClient(supabaseUrl, supabaseAnonKey);
 let currentGameId = null;
 let currentPlayer = null;
@@ -41,13 +42,10 @@ async function handleClick(index) {
 
 function checkWinner(board) {
   const wins = [
-    // Rows
     ...Array(5).fill().map((_, i) => Array(5).fill().map((_, j) => i * 5 + j)),
-    // Columns
     ...Array(5).fill().map((_, i) => Array(5).fill().map((_, j) => j * 5 + i)),
-    // Diagonals
-    Array(5).fill().map((_, i) => i * 6), // Main diagonal
-    Array(5).fill().map((_, i) => (i + 1) * 4) // Anti-diagonal
+    Array(5).fill().map((_, i) => i * 6),
+    Array(5).fill().map((_, i) => (i + 1) * 4)
   ];
   for (const combo of wins) {
     if (combo.every(i => board[i] === (board[combo[0]] === 'X' ? 'X' : 'O'))) {
@@ -55,7 +53,7 @@ function checkWinner(board) {
       return board[combo[0]] === 'X' ? 1 : 2;
     }
   }
-  return board.includes('0') ? null : 0; // Draw if no empty cells
+  return board.includes('0') ? null : 0;
 }
 
 function updateScore() {
