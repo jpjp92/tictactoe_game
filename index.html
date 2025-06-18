@@ -31,8 +31,12 @@
 
     #scoreboard {
       display: flex;
+      flex-direction: row;
       gap: 30px;
       margin-bottom: 20px;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
     }
 
     .score {
@@ -58,8 +62,10 @@
 
     #game-board {
       display: grid;
-      grid-template-columns: repeat(5, minmax(80px, 100px));
+      grid-template-columns: repeat(5, minmax(50px, 1fr));
       gap: 15px;
+      max-width: 500px;
+      width: 100%;
     }
 
     .cell {
@@ -120,17 +126,25 @@
       transform: scale(1.05);
     }
 
-    @media (max-width: 480px) {
+    @media (max-width: 600px) {
       h1 {
         font-size: 2rem;
       }
+      #game-board {
+        grid-template-columns: repeat(5, 1fr);
+        gap: 6px;
+        max-width: 98vw;
+      }
       .cell {
-        font-size: 2rem;
+        font-size: 1.3rem;
+        min-width: 0;
+        padding: 0;
       }
       #scoreboard {
-        flex-direction: column;
+        flex-direction: row !important;
         gap: 10px;
         align-items: center;
+        justify-content: center;
       }
     }
   </style>
@@ -194,8 +208,9 @@
         statusText.textContent = `${currentPlayer}'s turn`;
       }
     }
+
     function checkWin(player) {
-      // 행 검사
+      // Row check
       for (let r = 0; r < 5; r++) {
         let row = true;
         for (let c = 0; c < 5; c++) {
@@ -206,7 +221,7 @@
           return true;
         }
       }
-      // 열 검사
+      // Column check
       for (let c = 0; c < 5; c++) {
         let col = true;
         for (let r = 0; r < 5; r++) {
@@ -217,7 +232,7 @@
           return true;
         }
       }
-      // 대각선 검사 (좌상단→우하단)
+      // Diagonal left-top to right-bottom
       let diag1 = true;
       for (let i = 0; i < 5; i++) {
         if (cells[i*6] !== player) diag1 = false;
@@ -226,7 +241,7 @@
         for (let i = 0; i < 5; i++) board.children[i*6].classList.add("win");
         return true;
       }
-      // 대각선 검사 (우상단→좌하단)
+      // Diagonal right-top to left-bottom
       let diag2 = true;
       for (let i = 1; i <= 5; i++) {
         if (cells[i*4] !== player) diag2 = false;
@@ -237,22 +252,6 @@
       }
       return false;
     }
-    // function checkWin(player) {
-    //   const wins = [
-    //     [0,1,2], [3,4,5], [6,7,8],
-    //     [0,3,6], [1,4,7], [2,5,8],
-    //     [0,4,8], [2,4,6]
-    //   ];
-    //   for (const combo of wins) {
-    //     if (combo.every(i => cells[i] === player)) {
-    //       combo.forEach(i => {
-    //         board.children[i].classList.add("win");
-    //       });
-    //       return true;
-    //     }
-    //   }
-    //   return false;
-    // }
 
     function updateScore() {
       xScoreEl.textContent = scores["X"];
