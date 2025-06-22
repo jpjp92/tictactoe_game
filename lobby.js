@@ -262,15 +262,20 @@ if (!window.lobbyJS.initialized) {
       roomSubscription = null;
     }
     
+    // 화면 전환
+    lobbyScreen.classList.add('hidden');
+    gameScreen.classList.remove('hidden');
+    
+    console.log('화면 전환 완료:', {
+      lobbyHidden: lobbyScreen.classList.contains('hidden'),
+      gameVisible: !gameScreen.classList.contains('hidden')
+    });
+    
     // 게임 초기화 이벤트 발생
     const gameInitEvent = new CustomEvent('gameInitialize', { 
       detail: { room, player: currentPlayer } 
     });
     document.dispatchEvent(gameInitEvent);
-    
-    // 화면 전환
-    lobbyScreen.classList.add('hidden');
-    gameScreen.classList.remove('hidden');
   }
 
   /**

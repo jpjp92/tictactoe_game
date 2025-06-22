@@ -20,6 +20,54 @@
       document.write('<script src="config.js"><\/script>');
     }
   </script>
+
+  <style>
+    /* 게임 보드 스타일 추가 */
+    .game-board {
+      display: grid;
+      grid-gap: 5px;
+      width: 100%;
+      max-width: 500px;
+      margin: 20px auto;
+    }
+    
+    .cell {
+      aspect-ratio: 1;
+      background-color: rgba(255, 255, 255, 0.5);
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2rem;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    
+    .cell:hover {
+      background-color: rgba(255, 255, 255, 0.7);
+    }
+    
+    .x {
+      color: #3b82f6;
+    }
+    
+    .o {
+      color: #ef4444;
+    }
+    
+    /* 화면 전환 스타일 확인 */
+    .screen.hidden {
+      display: none;
+    }
+    
+    .screen {
+      display: block;
+      width: 100%;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+  </style>
 </head>
 <body>
   <h1>Multiplayer Tic Tac Toe</h1>
@@ -62,24 +110,24 @@
   
   <!-- Game Screen -->
   <div id="game-screen" class="screen hidden">
-    <h2 id="room-title">Game Room</h2>
+    <h2 id="room-title">방 제목</h2>
     
-    <div class="game-info">
-      <div class="player-info">
-        <div id="player1-info" class="player active">
-          <span class="x">X</span>: <span id="player1-name">Player 1</span>
-        </div>
-        <div id="player2-info" class="player">
-          <span class="o">O</span>: <span id="player2-name">Player 2</span>
-        </div>
+    <div class="player-info-container">
+      <div id="player1-info" class="player-info">
+        <span class="player-symbol">X: </span>
+        <span id="player1-name">Player 1</span>
+      </div>
+      <div id="player2-info" class="player-info">
+        <span class="player-symbol">O: </span>
+        <span id="player2-name">Player 2</span>
       </div>
     </div>
     
-    <div id="game-board"></div>
-    <p id="status">Waiting for opponent...</p>
-    <div class="game-actions">
-      <button id="leave-game">Leave Game</button>
-    </div>
+    <!-- 게임 보드 컨테이너 확인 -->
+    <div id="game-board" class="game-board"></div>
+    
+    <div id="status" class="status">게임 준비 중...</div>
+    <button id="leave-game" class="button">Leave Game</button>
   </div>
 
   <!-- Supabase 라이브러리 -->

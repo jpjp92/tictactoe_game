@@ -30,24 +30,48 @@ if (!window.gameJS.initialized) {
   /**
    * 게임 초기화
    */
-  document.addEventListener('gameInitialize', async (e) => {
+  document.addEventListener('gameInitialize', (e) => {
+    console.log('게임 초기화 이벤트 수신:', e.detail);
+    
     const { room, player } = e.detail;
     currentGame = room;
     currentPlayer = player;
-    boardSize = room.board_size;
+    boardSize = room.board_size || 3;
+    
+    // 현재 게임 상태 확인용 로그
+    console.log('게임 초기화:', {
+      room_id: room.id,
+      boardSize,
+      player: player.name,
+      isHost: room.host_id === player.id
+    });
+    
+    // 방 제목 설정
+    if (roomTitle) {
+      roomTitle.textContent = room.name || '방 제목 없음';
+    }
     
     // 내가 X(방장)인지 O(게스트)인지 설정
     const isHost = room.host_id === player.id;
     playerSymbol = isHost ? 'X' : 'O';
     
-    // 게임 보드 초기화
+    // 게임 보드 초기화 (보드 그리기)
     setupGame();
     
     // 실시간 게임 상태 구독
     setupRealtimeGame();
     
-    // 상세 방 정보 가져오기
-    await fetchRoomDetails();
+    // 보드 가시성 명시적 체크
+    setTimeout(() => {
+      if (gameBoard) {
+        console.log('게임 보드 요소 스타일:', {
+          display: getComputedStyle(gameBoard).display,
+          width: getComputedStyle(gameBoard).width,
+          height: getComputedStyle(gameBoard).height,
+          children: gameBoard.children.length
+        });
+      }
+    }, 1000);
   });
 
   /**
@@ -129,11 +153,28 @@ if (!window.gameJS.initialized) {
    * 게임 초기 설정
    */
   const setupGame = () => {
+    console.log('게임 보드 초기화 시작');
+    
+    // gameBoard 요소가 존재하는지 확인
+    if (!gameBoard) {
+      console.error('게임 보드 요소를 찾을 수 없습니다!');
+      return;
+    }
+    
+    // 보드 크기 설정
     gameBoard.innerHTML = '';
     gameBoard.style.gridTemplateColumns = `repeat(${boardSize}, minmax(50px, 1fr))`;
+    gameBoard.style.display = 'grid';  // 명시적으로 그리드로 설정
+    gameBoard.style.width = '100%';    // 너비 설정
+    gameBoard.style.maxWidth = '500px'; // 최대 너비 제한
+    gameBoard.style.margin = '20px auto'; // 가운데 정렬
     
+    // 초기 보드 상태 설정
     cells = Array(boardSize * boardSize).fill('');
+    
+    // 보드 그리기
     drawBoard();
+    console.log('게임 보드 초기화 완료:', { boardSize, cells });
   };
 
   /**
@@ -162,22 +203,39 @@ if (!window.gameJS.initialized) {
    * 게임 보드 그리기
    */
   function drawBoard() {
+    console.log('게임 보드 그리기 시작');
     gameBoard.innerHTML = '';
     
     cells.forEach((cell, index) => {
       const div = document.createElement("div");
-      div.classList.add("cell");
+      div.className = "cell";
+      div.dataset.index = index; // 인덱스 저장
+    
+      // 셀 스타일 직접 설정
+      div.style.backgroundColor = "rgba(255, 255, 255, 0.5)";
+      div.style.borderRadius = "4px";
+      div.style.aspectRatio = "1";
+      div.style.display = "flex";
+      div.style.alignItems = "center";
+      div.style.justifyContent = "center";
+      div.style.fontSize = "2rem";
+      div.style.fontWeight = "bold";
+      div.style.cursor = "pointer";
+      div.style.margin = "2px";
 
       if (cell === "X" || cell === "O") {
         const span = document.createElement("span");
         span.textContent = cell;
-        span.classList.add(cell === "X" ? "x" : "o", "pop");
+        span.className = cell === "X" ? "x" : "o";
+        span.style.color = cell === "X" ? "#3b82f6" : "#ef4444";
         div.appendChild(span);
       }
 
       div.addEventListener("click", () => handleCellClick(index), { passive: true });
       gameBoard.appendChild(div);
     });
+    
+    console.log('게임 보드 그리기 완료');
   }
 
   /**
