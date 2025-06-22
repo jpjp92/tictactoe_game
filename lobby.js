@@ -1,207 +1,290 @@
-/* 멀티플레이어 관련 스타일 */
+// DOM 요소
+const lobbyScreen = document.getElementById('lobby-screen');
+const gameScreen = document.getElementById('game-screen');
+const roomNameInput = document.getElementById('room-name');
+const createRoomButton = document.getElementById('create-room-button');
+const roomList = document.getElementById('room-list');
+const refreshRoomsButton = document.getElementById('refresh-rooms');
+const size3x3CreateBtn = document.getElementById('size-3x3-create');
+const size5x5CreateBtn = document.getElementById('size-5x5-create');
+const playerDisplayName = document.getElementById('player-display-name');
 
-/* 화면 전환용 클래스 */
-.hidden {
-  display: none !important;
-}
+// 상태 변수
+let currentPlayer = null;
+let selectedBoardSize = 3;  // 기본 보드 크기는 3x3
+let roomSubscription = null;
 
-.screen {
-  width: 100%;
-  max-width: 600px;
-  margin: 0 auto;
-  padding: 20px;
-}
+// Supabase 클라이언트 가져오기
+const supabase = window.supabaseClient;
 
-/* 로그인 화면 스타일 */
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-  max-width: 300px;
-  margin: 20px auto;
-}
-
-input {
-  padding: 10px 15px;
-  border-radius: 8px;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  font-size: 1rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-}
-
-.error {
-  color: #ef4444;
-  font-size: 0.9rem;
-}
-
-/* 로비 화면 스타일 */
-.lobby-actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
-  margin-top: 20px;
-}
-
-.create-room {
-  background: rgba(255, 255, 255, 0.3);
-  padding: 20px;
-  border-radius: 16px;
-  backdrop-filter: blur(12px);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-}
-
-.room-list-container {
-  background: rgba(255, 255, 255, 0.3);
-  padding: 20px;
-  border-radius: 16px;
-  backdrop-filter: blur(12px);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-
-.room-list {
-  flex-grow: 1;
-  overflow-y: auto;
-  max-height: 300px;
-}
-
-.room-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px;
-  background: rgba(255, 255, 255, 0.4);
-  border-radius: 10px;
-  margin-bottom: 10px;
-}
-
-.room-info {
-  flex-grow: 1;
-}
-
-.room-info h4 {
-  margin: 0 0 5px;
-  font-size: 1rem;
-}
-
-.room-size, .host-name {
-  font-size: 0.85rem;
-  color: #4b5563;
-  margin-right: 10px;
-}
-
-.join-button {
-  padding: 6px 12px;
-  font-size: 0.9rem;
-  margin-top: 0;
-}
-
-/* 게임 화면 플레이어 정보 */
-.player-info {
-  display: flex;
-  justify-content: center;
-  gap: 30px;
-  margin-bottom: 15px;
-}
-
-.player {
-  padding: 10px 16px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(10px);
-  transition: all 0.3s;
-}
-
-.player.active {
-  background: rgba(255, 255, 255, 0.6);
-  box-shadow: 0 0 15px rgba(99, 102, 241, 0.3);
-  transform: scale(1.05);
-}
-
-.player.winner {
-  background: linear-gradient(to right, #fef9c3, #fcd34d);
-  box-shadow: 0 0 20px rgba(252, 211, 77, 0.5);
-}
-
-/* 반응형 스타일 */
-@media (max-width: 600px) {
-  .lobby-actions {
-    grid-template-columns: 1fr;
+/**
+ * 로비 초기화
+ */
+document.addEventListener('lobbyInitialize', (e) => {
+  currentPlayer = e.detail.player;
+  
+  // 사용자 이름 표시
+  if (playerDisplayName) {
+    playerDisplayName.textContent = currentPlayer.name;
   }
   
-  .room-list {
-    max-height: 200px;
+  loadRooms();
+  setupRealtimeSubscription();
+});
+
+/**
+ * 방 목록 불러오기
+ */
+async function loadRooms() {
+  try {
+    roomList.innerHTML = '<p class="loading">방 목록을 불러오는 중...</p>';
+    
+    // Supabase가 준비되지 않은 경우 처리
+    if (!supabase) {
+      roomList.innerHTML = '<p class="error">서버 연결에 실패했습니다. 나중에 다시 시도해주세요.</p>';
+      return;
+    }
+    
+    const { data: rooms, error } = await supabase
+      .from('rooms')
+      .select(`
+        id, 
+        name, 
+        board_size,
+        host_id,
+        guest_id,
+        status,
+        host:host_id(name)
+      `)
+      .eq('status', 'waiting')  // 대기 중인 방만 가져옴
+      .order('created_at', { ascending: false });  // 최신순 정렬
+    
+    if (error) throw error;
+    
+    displayRooms(rooms || []);
+  } catch (error) {
+    console.error('방 목록 불러오기 오류:', error);
+    roomList.innerHTML = '<p class="error">방 목록을 불러오는 데 실패했습니다.</p>';
   }
 }
 
-/* 스크립트 관련 스타일 */
-<script type="module">
-  import { supabase } from './supabase.js';
-  import { getPlayer } from './login.js';
-
-  // DOM 요소
-  const lobbyScreen = document.getElementById('lobby-screen');
-  const gameScreen = document.getElementById('game-screen');
-  const roomNameInput = document.getElementById('room-name');
-  const createRoomButton = document.getElementById('create-room-button');
-  const roomList = document.getElementById('room-list');
-  const refreshRoomsButton = document.getElementById('refresh-rooms');
-  const size3x3CreateBtn = document.getElementById('size-3x3-create');
-  const size5x5CreateBtn = document.getElementById('size-5x5-create');
-
-  // 상태 변수
-  let currentPlayer = null;
-  let selectedBoardSize = 3;  // 기본 보드 크기는 3x3
-
-  // 로비 초기화
-  document.addEventListener('lobbyInitialize', (e) => {
-    currentPlayer = e.detail.player;
-    loadRooms();
-    setupRealtimeSubscription();
-  });
-
-  // 방 목록 로드
-  async function loadRooms() {
-    // ... 기존 코드 유지 ...
+/**
+ * 방 목록 화면에 표시
+ */
+function displayRooms(rooms) {
+  if (!rooms || rooms.length === 0) {
+    roomList.innerHTML = '<p>현재 참여 가능한 방이 없습니다.</p>';
+    return;
   }
+  
+  roomList.innerHTML = '';
+  
+  rooms.forEach(room => {
+    const roomElement = document.createElement('div');
+    roomElement.className = 'room-item';
+    
+    roomElement.innerHTML = `
+      <div class="room-info">
+        <h4>${room.name}</h4>
+        <span class="room-size">${room.board_size}x${room.board_size}</span>
+        <span class="host-name">방장: ${room.host?.name || '알 수 없음'}</span>
+      </div>
+      <button class="join-button">참여</button>
+    `;
+    
+    const joinButton = roomElement.querySelector('.join-button');
+    joinButton.addEventListener('click', () => joinRoom(room.id));
+    
+    roomList.appendChild(roomElement);
+  });
+}
 
-  // 실시간 구독 설정
-  function setupRealtimeSubscription() {
-    // ... 기존 코드 유지 ...
+/**
+ * 실시간 방 목록 업데이트를 위한 구독 설정
+ */
+function setupRealtimeSubscription() {
+  // 이전 구독이 있으면 해제
+  if (roomSubscription) {
+    roomSubscription.unsubscribe();
   }
+  
+  // Supabase가 준비되지 않은 경우 처리
+  if (!supabase) {
+    console.error('Supabase 클라이언트가 준비되지 않아 실시간 구독을 설정할 수 없습니다.');
+    return;
+  }
+  
+  try {
+    roomSubscription = supabase
+      .channel('room-changes')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'rooms' }, 
+        () => loadRooms()
+      )
+      .subscribe();
+  } catch (error) {
+    console.error('실시간 구독 설정 오류:', error);
+  }
+}
 
-  // 방 생성
-  createRoomButton.addEventListener('click', async () => {
-    const roomName = roomNameInput.value.trim();
-    if (!roomName) return;
+/**
+ * 새 방 생성
+ */
+async function createRoom() {
+  const roomName = roomNameInput.value.trim();
+  
+  if (!roomName) {
+    alert('방 이름을 입력해주세요');
+    return;
+  }
+  
+  createRoomButton.disabled = true;
+  
+  try {
+    // Supabase가 준비되지 않은 경우 처리
+    if (!supabase) {
+      alert('서버 연결에 실패했습니다. 나중에 다시 시도해주세요.');
+      createRoomButton.disabled = false;
+      return;
+    }
+    
+    // 빈 보드 상태 생성
+    const emptyBoardState = Array(selectedBoardSize * selectedBoardSize).fill('');
+    
+    const newRoom = {
+      name: roomName,
+      board_size: selectedBoardSize,
+      host_id: currentPlayer.id,
+      current_turn: currentPlayer.id,
+      status: 'waiting',
+      board_state: emptyBoardState
+    };
+    
+    const { data: room, error } = await supabase
+      .from('rooms')
+      .insert(newRoom)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    
+    // 생성된 방으로 입장
+    joinRoom(room.id);
+    
+    // 입력 필드 초기화
+    roomNameInput.value = '';
+  } catch (error) {
+    console.error('방 생성 오류:', error);
+    alert('방 생성에 실패했습니다. 다시 시도해주세요.');
+  } finally {
+    createRoomButton.disabled = false;
+  }
+}
 
-    // 방 생성 로직
-    // ... 기존 코드 유지 ...
+/**
+ * 방 참여
+ */
+async function joinRoom(roomId) {
+  try {
+    // Supabase가 준비되지 않은 경우 처리
+    if (!supabase) {
+      alert('서버 연결에 실패했습니다. 나중에 다시 시도해주세요.');
+      return;
+    }
+    
+    // 방 정보 가져오기
+    const { data: room, error: fetchError } = await supabase
+      .from('rooms')
+      .select(`
+        id,
+        name,
+        board_size,
+        host_id,
+        guest_id,
+        status,
+        host:host_id(name)
+      `)
+      .eq('id', roomId)
+      .single();
+    
+    if (fetchError) throw fetchError;
+    
+    // 방 상태 확인
+    if (room.status !== 'waiting') {
+      alert('이 방은 더 이상 참여할 수 없습니다.');
+      return;
+    }
+    
+    // 내가 방장인 경우
+    if (room.host_id === currentPlayer.id) {
+      startGame(room);
+      return;
+    }
+    
+    // 게스트로 참여
+    const { data, error } = await supabase
+      .from('rooms')
+      .update({ 
+        guest_id: currentPlayer.id, 
+        status: 'playing' 
+      })
+      .eq('id', roomId)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    
+    // 게임 시작
+    startGame(data);
+  } catch (error) {
+    console.error('방 참여 오류:', error);
+    alert('방 참여에 실패했습니다. 다시 시도해주세요.');
+  }
+}
+
+/**
+ * 게임 시작
+ */
+function startGame(room) {
+  // 구독 해제 (게임 화면으로 이동)
+  if (roomSubscription) {
+    roomSubscription.unsubscribe();
+    roomSubscription = null;
+  }
+  
+  // 게임 초기화 이벤트 발생
+  const gameInitEvent = new CustomEvent('gameInitialize', { 
+    detail: { room, player: currentPlayer } 
   });
+  document.dispatchEvent(gameInitEvent);
+  
+  // 화면 전환
+  lobbyScreen.classList.add('hidden');
+  gameScreen.classList.remove('hidden');
+}
 
-  // 방 목록 새로 고침
-  refreshRoomsButton.addEventListener('click', () => {
-    loadRooms();
-  });
+/**
+ * 보드 크기 변경
+ */
+function setBoardSize(size) {
+  selectedBoardSize = size;
+  size3x3CreateBtn.classList.toggle('active', size === 3);
+  size5x5CreateBtn.classList.toggle('active', size === 5);
+}
 
-  // 3x3 보드 크기 선택
-  size3x3CreateBtn.addEventListener('click', () => {
-    selectedBoardSize = 3;
-    // 버튼 스타일 업데이트
-    size3x3CreateBtn.classList.add('active');
-    size5x5CreateBtn.classList.remove('active');
-  });
+// 페이지 언로드 시 구독 정리
+window.addEventListener('beforeunload', () => {
+  if (roomSubscription) {
+    roomSubscription.unsubscribe();
+    roomSubscription = null;
+  }
+});
 
-  // 5x5 보드 크기 선택
-  size5x5CreateBtn.addEventListener('click', () => {
-    selectedBoardSize = 5;
-    // 버튼 스타일 업데이트
-    size5x5CreateBtn.classList.add('active');
-    size3x3CreateBtn.classList.remove('active');
-  });
-</script>
+// 이벤트 리스너
+createRoomButton.addEventListener('click', createRoom);
+refreshRoomsButton.addEventListener('click', loadRooms);
+size3x3CreateBtn.addEventListener('click', () => setBoardSize(3));
+size5x5CreateBtn.addEventListener('click', () => setBoardSize(5));
+roomNameInput.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') createRoom();
+});

@@ -1,4 +1,5 @@
-import { supabase } from './supabase.js';
+// Supabase 클라이언트를 전역 변수로 가져오기
+const supabase = window.supabaseClient;
 
 // DOM 요소
 const gameScreen = document.getElementById('game-screen');
