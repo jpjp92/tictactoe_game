@@ -1,5 +1,7 @@
 {
+  "name": "tictactoe_game",
+  "version": "1.0.0",
   "scripts": {
-    "build": "node build-script.js"
+    "build": "node inject-env.js"
   }
 }

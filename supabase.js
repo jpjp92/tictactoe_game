@@ -32,8 +32,21 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
   console.error('Supabase 설정이 없습니다. config.js 파일 또는 환경 변수를 확인하세요.');
 }
 
-// Supabase 클라이언트 생성
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-// export { supabase }; 대신
-window.supabaseClient = supabase;
+// URL 유효성 검사 추가
+try {
+  // URL이 유효한지 확인 (프로토콜 포함 여부)
+  if (SUPABASE_URL && !SUPABASE_URL.startsWith('http')) {
+    SUPABASE_URL = 'https://' + SUPABASE_URL;
+  }
+  
+  console.log('Supabase 연결 정보:', { url: SUPABASE_URL, key: SUPABASE_ANON_KEY ? '설정됨' : '없음' });
+  
+  // Supabase 클라이언트 생성
+  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  
+  // 전역 변수로 내보내기
+  window.supabaseClient = supabase;
+} catch (error) {
+  console.error('Supabase 클라이언트 생성 오류:', error);
+  window.supabaseClient = null;
+}
