@@ -18,28 +18,45 @@ jobs:
         with:
           node-version: '18'
       
+      - name: Debug secrets (보안 확인)
+        run: |
+          echo "Secrets 존재 여부 확인:"
+          echo "SUPABASE_URL 길이: ${#SUPABASE_URL}"
+          echo "SUPABASE_ANON_KEY 길이: ${#SUPABASE_ANON_KEY}"
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      
       - name: Replace environment variables
         run: |
           echo "환경 변수 주입 시작..."
+          echo "원본 파일 내용 확인:"
+          grep -n "__SUPABASE_" index.html || echo "플레이스홀더를 찾을 수 없습니다."
           
-          # index.html에서 플레이스홀더를 실제 값으로 대체
-          sed -i 's|__SUPABASE_URL__|${{ secrets.SUPABASE_URL }}|g' index.html
-          sed -i 's|__SUPABASE_ANON_KEY__|${{ secrets.SUPABASE_ANON_KEY }}|g' index.html
+          # 환경 변수를 파일로 저장하여 sed에서 사용
+          echo "$SUPABASE_URL" > /tmp/supabase_url.txt
+          echo "$SUPABASE_ANON_KEY" > /tmp/supabase_key.txt
+          
+          # 더 안전한 방식으로 대체
+          sed -i "s|__SUPABASE_URL__|$(cat /tmp/supabase_url.txt)|g" index.html
+          sed -i "s|__SUPABASE_ANON_KEY__|$(cat /tmp/supabase_key.txt)|g" index.html
+          
+          echo "대체 후 파일 내용 확인:"
+          grep -n "ENV_SUPABASE" index.html | head -5
+          
+          # 임시 파일 정리
+          rm -f /tmp/supabase_url.txt /tmp/supabase_key.txt
           
           echo "환경 변수 주입 완료!"
-          
-          # 확인용 (보안상 실제 값은 출력하지 않음)
-          echo "파일 변경 확인:"
-          grep -o "__SUPABASE_URL__\|__SUPABASE_ANON_KEY__" index.html || echo "모든 플레이스홀더가 대체되었습니다."
-        
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      
       - name: Install Vercel CLI
         run: npm install --global vercel@latest
       
-      - name: Pull Vercel Environment Information
-        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
-      
-      - name: Build Project Artifacts
-        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
-      
-      - name: Deploy Project Artifacts to Vercel
-        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+      - name: Deploy to Vercel
+        run: vercel deploy --prod --token=${{ secrets.VERCEL_TOKEN }} --confirm
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}

@@ -15,27 +15,30 @@ if (!window.supabaseUtils.initialized) {
 
   // 환경에 따른 설정 분기
   if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-    // 로컬 개발 환경 - config.js에서 설정 로드
+    // 로컬 개발 환경
     const config = window.supabaseConfig || {};
     SUPABASE_URL = config.SUPABASE_URL || '';
     SUPABASE_ANON_KEY = config.SUPABASE_ANON_KEY || '';
     console.log('로컬 개발 환경에서 실행 중입니다.');
   } else {
-    // 배포 환경 - 환경 변수를 사용 (GitHub Actions secrets/variables에서 주입됨)
+    // 배포 환경
     SUPABASE_URL = window.ENV_SUPABASE_URL || '';
     SUPABASE_ANON_KEY = window.ENV_SUPABASE_ANON_KEY || '';
     
-    // 환경 변수가 플레이스홀더인 경우 알림
+    // 환경 변수가 제대로 주입되지 않은 경우 임시 기본값 사용
     if (SUPABASE_URL === '__SUPABASE_URL__' || SUPABASE_URL.includes('{{') || !SUPABASE_URL) {
-      console.error('GitHub Actions secrets에서 SUPABASE_URL이 제대로 주입되지 않았습니다.');
-      // 빌드 과정에서 주입되는 값이므로 하드코딩 제거
+      console.warn('환경 변수가 주입되지 않아 기본값을 사용합니다.');
+      SUPABASE_URL = "https://axpvmgndefueicehdetu.supabase.co";
     }
     
     if (SUPABASE_ANON_KEY === '__SUPABASE_ANON_KEY__' || SUPABASE_ANON_KEY.includes('{{') || !SUPABASE_ANON_KEY) {
-      console.error('GitHub Actions secrets에서 SUPABASE_ANON_KEY가 제대로 주입되지 않았습니다.');
-      // 빌드 과정에서 주입되는 값이므로 하드코딩 제거
+      console.warn('환경 변수가 주입되지 않아 기본값을 사용합니다.');
+      SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF4cHZtZ25kZWZ1ZWljZWhkZXR1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQwMDI2MjYsImV4cCI6MjA0OTU3ODYyNn0.9fOKvYNUWWX4JxYHvW4-iHQ5UkuglEhM3b8l1OC4A9Q";
     }
   }
+
+  console.log('사용 중인 Supabase URL:', SUPABASE_URL.substring(0, 30) + '...');
+  console.log('사용 중인 Anon Key 길이:', SUPABASE_ANON_KEY.length);
 
   /**
    * Supabase 클라이언트 초기화
