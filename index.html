@@ -8,9 +8,9 @@
   
   <!-- 환경 변수 설정 스크립트 -->
   <script>
-    // 빈 값으로 초기화 (추후 inject-env.js에 의해 대체됨)
-    window.ENV_SUPABASE_URL = "__SUPABASE_URL__";
-    window.ENV_SUPABASE_ANON_KEY = "__SUPABASE_ANON_KEY__";
+    // 빌드 시 대체될 환경 변수 (혹은 하드코딩된 값으로 대체)
+    window.ENV_SUPABASE_URL = "https://axpvmgndefueicehdetu.supabase.co";
+    window.ENV_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF4cHZtZ25kZWZ1ZWljZWhkZXR1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQwMDI2MjYsImV4cCI6MjA0OTU3ODYyNn0.NibSXQX-F0Ruv22BLkXgYQSXn5nf4jR-n0Wz1JWrbkI";
   </script>
   
   <!-- 로컬 개발용 설정 (조건부 로드) -->
@@ -85,7 +85,7 @@
   <!-- Supabase 라이브러리 -->
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   
-  <!-- 모듈 대신 일반 스크립트로 변경 -->
+  <!-- 애플리케이션 스크립트 (순서 중요) -->
   <script src="supabase.js"></script>
   <script src="login.js"></script>
   <script src="lobby.js"></script>

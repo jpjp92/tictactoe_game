@@ -11,38 +11,23 @@ if (window.location.hostname === 'localhost' || window.location.hostname === '12
   
   console.log('로컬 개발 환경에서 실행 중입니다.');
 } else {
-  // 배포 환경 - Vercel 환경 변수
+  // 배포 환경 - 환경 변수 또는 기본값
   SUPABASE_URL = window.ENV_SUPABASE_URL || '';
   SUPABASE_ANON_KEY = window.ENV_SUPABASE_ANON_KEY || '';
   
-  // 환경 변수가 플레이스홀더인 경우 처리
-  if (SUPABASE_URL === '__SUPABASE_URL__' || SUPABASE_URL.includes('{{')) {
-    console.error('환경 변수가 제대로 설정되지 않았습니다.');
-    SUPABASE_URL = '';
+  if (SUPABASE_URL === '__SUPABASE_URL__' || SUPABASE_URL.includes('{{') || !SUPABASE_URL) {
+    console.log('기본 Supabase URL을 사용합니다.');
+    SUPABASE_URL = 'https://axpvmgndefueicehdetu.supabase.co';
   }
   
-  if (SUPABASE_ANON_KEY === '__SUPABASE_ANON_KEY__' || SUPABASE_ANON_KEY.includes('{{')) {
-    console.error('환경 변수가 제대로 설정되지 않았습니다.');
-    SUPABASE_ANON_KEY = '';
+  if (SUPABASE_ANON_KEY === '__SUPABASE_ANON_KEY__' || SUPABASE_ANON_KEY.includes('{{') || !SUPABASE_ANON_KEY) {
+    console.log('기본 Supabase Anon Key를 사용합니다.');
+    SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF4cHZtZ25kZWZ1ZWljZWhkZXR1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQwMDI2MjYsImV4cCI6MjA0OTU3ODYyNn0.NibSXQX-F0Ruv22BLkXgYQSXn5nf4jR-n0Wz1JWrbkI';
   }
-}
-
-// 설정 확인
-if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  console.error('Supabase 설정이 없습니다. config.js 파일 또는 환경 변수를 확인하세요.');
 }
 
 // URL 유효성 검사와 수정
 try {
-  // 하드코딩된 기본값은 제거하고, 대신 오류 메시지 표시
-  if (!SUPABASE_URL || SUPABASE_URL === '') {
-    throw new Error('유효한 Supabase URL이 설정되지 않았습니다');
-  }
-  
-  if (!SUPABASE_ANON_KEY || SUPABASE_ANON_KEY === '') {
-    throw new Error('유효한 Supabase Anon Key가 설정되지 않았습니다');
-  }
-
   // URL이 유효한지 확인 (프로토콜 포함 여부)
   if (!SUPABASE_URL.startsWith('http')) {
     SUPABASE_URL = 'https://' + SUPABASE_URL;
@@ -59,12 +44,5 @@ try {
   console.log('Supabase 클라이언트가 성공적으로 초기화되었습니다.');
 } catch (error) {
   console.error('Supabase 클라이언트 생성 오류:', error);
-  
-  // 오류 메시지를 UI에 표시
-  const loginError = document.getElementById('login-error');
-  if (loginError) {
-    loginError.textContent = '서버 연결에 문제가 있습니다. 나중에 다시 시도해주세요.';
-  }
-  
   window.supabaseClient = null;
 }
