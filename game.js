@@ -28,7 +28,7 @@ if (!window.gameJS.initialized) {
   let playerSymbol = '';
 
   /**
-   * 게임 초기화
+   * 게임 초기화 이벤트 처리기
    */
   document.addEventListener('gameInitialize', (e) => {
     console.log('게임 초기화 이벤트 수신:', e.detail);
@@ -38,12 +38,13 @@ if (!window.gameJS.initialized) {
     currentPlayer = player;
     boardSize = room.board_size || 3;
     
-    // 현재 게임 상태 확인용 로그
+    // 현재 게임 상태 확인
     console.log('게임 초기화:', {
       room_id: room.id,
       boardSize,
       player: player.name,
-      isHost: room.host_id === player.id
+      isHost: room.host_id === player.id,
+      hasGuest: !!room.guest_id
     });
     
     // 방 제목 설정
@@ -56,14 +57,7 @@ if (!window.gameJS.initialized) {
     playerSymbol = isHost ? 'X' : 'O';
     
     // 플레이어 이름 표시
-    if (player1Name) {
-      player1Name.textContent = room.host?.name || player.name;
-    }
-    if (player2Name && room.guest_id) {
-      player2Name.textContent = room.guest?.name || '게스트';
-    } else if (player2Name) {
-      player2Name.textContent = '대기 중...';
-    }
+    updatePlayerInfo(room);
     
     // 게임 보드 초기화 (보드 그리기)
     setupGame();
@@ -71,26 +65,105 @@ if (!window.gameJS.initialized) {
     // 실시간 게임 상태 구독
     setupRealtimeGame();
     
-    // 현재 턴 확인
-    isMyTurn = room.current_turn === player.id;
-    statusText.textContent = isMyTurn ? '당신의 턴입니다!' : '상대방의 턴입니다';
+    // 상태 업데이트
+    updateGameStatus(room);
     
-    // 턴 표시 업데이트
-    player1Info.classList.toggle('active', room.current_turn === room.host_id);
-    player2Info.classList.toggle('active', room.current_turn === room.guest_id);
-    
-    // 보드 가시성 확인을 위한 디버깅 로그
-    setTimeout(() => {
-      if (gameBoard) {
-        console.log('게임 보드 요소 스타일:', {
-          display: getComputedStyle(gameBoard).display,
-          width: getComputedStyle(gameBoard).width,
-          height: getComputedStyle(gameBoard).height,
-          children: gameBoard.children.length
-        });
-      }
-    }, 500);
+    // 디버깅을 위한 DOM 요소 출력
+    setTimeout(checkBoardVisibility, 1000);
   });
+
+  /**
+   * 플레이어 정보 업데이트
+   */
+  function updatePlayerInfo(room) {
+    // 방장 정보
+    if (player1Name) {
+      if (room.host) {
+        player1Name.textContent = room.host.name || '방장';
+      } else {
+        player1Name.textContent = '방장 (연결 중...)';
+      }
+    }
+    
+    // 게스트 정보
+    if (player2Name) {
+      if (room.guest_id) {
+        if (room.guest) {
+          player2Name.textContent = room.guest.name || '게스트';
+        } else {
+          player2Name.textContent = '게스트 (연결 중...)';
+        }
+      } else {
+        player2Name.textContent = '대기 중...';
+      }
+    }
+    
+    // 활성 플레이어 표시
+    if (player1Info && player2Info) {
+      const isHost = currentPlayer.id === room.host_id;
+      player1Info.classList.toggle('active', room.current_turn === room.host_id);
+      player2Info.classList.toggle('active', room.current_turn === room.guest_id);
+      
+      // 내 정보 강조
+      if (isHost) {
+        player1Info.classList.add('my-info');
+      } else {
+        player2Info.classList.add('my-info');
+      }
+    }
+  }
+
+  /**
+   * 게임 상태 업데이트
+   */
+  function updateGameStatus(room) {
+    if (!statusText) return;
+    
+    // 게임 상태에 따라 메시지 설정
+    if (room.status === 'waiting') {
+      if (room.host_id === currentPlayer.id) {
+        statusText.textContent = '상대방이 입장하기를 기다리는 중입니다...';
+      } else {
+        statusText.textContent = '게임 준비 중...';
+      }
+    } else if (room.status === 'playing') {
+      isMyTurn = room.current_turn === currentPlayer.id;
+      statusText.textContent = isMyTurn ? '당신의 턴입니다!' : '상대방의 턴입니다';
+    } else if (room.status === 'finished') {
+      if (room.winner_id) {
+        const isWinner = room.winner_id === currentPlayer.id;
+        statusText.textContent = isWinner ? '승리했습니다! 🎉' : '패배했습니다! 😢';
+      } else {
+        statusText.textContent = '무승부입니다! 🤝';
+      }
+    }
+  }
+
+  /**
+   * 게임 보드 가시성 확인 (디버깅용)
+   */
+  function checkBoardVisibility() {
+    if (gameBoard) {
+      console.log('게임 보드 요소 스타일:', {
+        display: getComputedStyle(gameBoard).display,
+        width: getComputedStyle(gameBoard).width,
+        height: getComputedStyle(gameBoard).height,
+        children: gameBoard.children.length,
+        visibility: getComputedStyle(gameBoard).visibility,
+        opacity: getComputedStyle(gameBoard).opacity
+      });
+      
+      // 보드가 보이지 않으면 스타일 강제 적용
+      if (getComputedStyle(gameBoard).display === 'none') {
+        gameBoard.style.display = 'grid';
+        gameBoard.style.visibility = 'visible';
+        gameBoard.style.opacity = '1';
+        console.log('게임 보드 가시성 수정 적용됨');
+      }
+    } else {
+      console.error('게임 보드 요소를 찾을 수 없음!');
+    }
+  }
 
   /**
    * 게임 초기 설정
@@ -140,25 +213,46 @@ if (!window.gameJS.initialized) {
       } catch (e) {
         console.log('구독 해제 오류:', e);
       }
+      gameSubscription = null;
     }
     
     // 새 구독 설정
     try {
+      console.log(`게임 ID:${currentGame.id}에 대한 실시간 구독 설정`);
+      
+      // 채널 ID 생성 (고유해야 함)
+      const channelId = `room-${currentGame.id}-${Date.now()}`;
+      
       gameSubscription = supabase
-        .channel(`room:${currentGame.id}`)
+        .channel(channelId)
         .on('postgres_changes', 
           { event: 'UPDATE', schema: 'public', table: 'rooms', filter: `id=eq.${currentGame.id}` },
           (payload) => {
             // 방 정보가 업데이트되면 게임 상태 업데이트
-            console.log('실시간 업데이트 수신:', payload.new);
+            console.log('게임 상태 업데이트 수신:', payload.new);
             updateGameState(payload.new);
           }
         )
         .subscribe((status) => {
-          console.log('Subscription status:', status);
+          console.log('게임 구독 상태:', status);
+          
+          if (status === 'SUBSCRIBED') {
+            // 구독 성공, 초기 게임 상태 설정
+            updateGameState(currentGame);
+          } else if (status === 'TIMED_OUT' || status === 'CHANNEL_ERROR') {
+            // 구독 실패 시 재시도
+            console.error('게임 구독 실패, 재시도 중...', status);
+            setTimeout(() => {
+              setupRealtimeGame();
+            }, 2000);
+          }
         });
     } catch (error) {
-      console.error('실시간 구독 설정 오류:', error);
+      console.error('실시간 게임 구독 설정 오류:', error);
+      // 오류 발생 시 5초 후 재시도
+      setTimeout(() => {
+        setupRealtimeGame();
+      }, 5000);
     }
   };
 
@@ -446,6 +540,70 @@ if (!window.gameJS.initialized) {
   if (leaveGameButton) {
     leaveGameButton.addEventListener('click', leaveGame);
   }
+  
+  // 게임 화면에 디버깅 도구 추가
+  function addDebugTools() {
+    // 이미 있으면 추가하지 않음
+    if (document.getElementById('debug-tools')) return;
+    
+    const debugContainer = document.createElement('div');
+    debugContainer.id = 'debug-tools';
+    debugContainer.style.margin = '20px 0';
+    debugContainer.style.padding = '10px';
+    debugContainer.style.backgroundColor = 'rgba(0,0,0,0.05)';
+    debugContainer.style.borderRadius = '8px';
+    
+    const debugTitle = document.createElement('h3');
+    debugTitle.textContent = '디버깅 도구';
+    debugTitle.style.marginTop = '0';
+    
+    const roomIdText = document.createElement('p');
+    roomIdText.textContent = `방 ID: ${currentGame?.id || 'N/A'}`;
+    
+    const refreshButton = document.createElement('button');
+    refreshButton.textContent = '게임 상태 새로고침';
+    refreshButton.onclick = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('rooms')
+          .select('*, host:host_id(name), guest:guest_id(name)')
+          .eq('id', currentGame.id)
+          .single();
+        
+        if (error) throw error;
+        
+        console.log('수동 새로고침 데이터:', data);
+        updateGameState(data);
+        alert('게임 상태가 새로고침되었습니다.');
+      } catch (err) {
+        console.error('새로고침 오류:', err);
+      }
+    };
+    
+    const reconnectButton = document.createElement('button');
+    reconnectButton.textContent = '실시간 구독 재연결';
+    reconnectButton.style.marginLeft = '10px';
+    reconnectButton.onclick = () => {
+      setupRealtimeGame();
+      alert('실시간 구독이 재설정되었습니다.');
+    };
+    
+    debugContainer.appendChild(debugTitle);
+    debugContainer.appendChild(roomIdText);
+    debugContainer.appendChild(refreshButton);
+    debugContainer.appendChild(reconnectButton);
+    
+    // 게임 화면에 추가
+    const gameScreenElement = document.getElementById('game-screen');
+    if (gameScreenElement) {
+      gameScreenElement.appendChild(debugContainer);
+    }
+  }
+
+  // 게임 초기화 후 디버깅 도구 추가
+  document.addEventListener('gameInitialize', () => {
+    setTimeout(addDebugTools, 1500);
+  });
   
   // 이미 실행되었음을 표시
   window.gameJS.initialized = true;

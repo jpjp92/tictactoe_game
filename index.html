@@ -9,9 +9,9 @@
   
   <!-- 환경 변수 설정 스크립트 -->
   <script>
-    // 빌드 시 대체될 환경 변수 (혹은 하드코딩된 값으로 대체)
-    window.ENV_SUPABASE_URL = "https://axpvmgndefueicehdetu.supabase.co";
-    window.ENV_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF4cHZtZ25kZWZ1ZWljZWhkZXR1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQwMDI2MjYsImV4cCI6MjA0OTU3ODYyNn0.9fOKvYNUWWX4JxYHvW4-iHQ5UkuglEhM3b8l1OC4A9Q";
+    // 빌드 시 GitHub Actions secrets에서 대체될 환경 변수
+    window.ENV_SUPABASE_URL = "__SUPABASE_URL__";  
+    window.ENV_SUPABASE_ANON_KEY = "__SUPABASE_ANON_KEY__";
   </script>
   
   <!-- 로컬 개발용 설정 (조건부 로드) -->
@@ -126,6 +126,12 @@
       font-weight: bold;
     }
     
+    /* 내 플레이어 정보 강조 */
+    .player-info.my-info {
+      border: 2px solid #3b82f6;
+      font-weight: bold;
+    }
+    
     /* 상태 텍스트 스타일 */
     .status {
       font-weight: bold;
@@ -146,6 +152,41 @@
       width: 100%;
       max-width: 800px;
       margin: 0 auto;
+    }
+    
+    /* 방 목록 아이템 스타일 */
+    .room-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px;
+      margin-bottom: 8px;
+      background-color: rgba(255, 255, 255, 0.7);
+      border-radius: 8px;
+    }
+    
+    .room-status {
+      font-size: 0.8rem;
+      padding: 3px 8px;
+      border-radius: 4px;
+    }
+    
+    .room-status.waiting {
+      background-color: rgba(59, 130, 246, 0.2);
+    }
+    
+    .room-status.in-progress {
+      background-color: rgba(239, 68, 68, 0.2);
+    }
+    
+    .join-button.in-progress {
+      background-color: #9ca3af;
+    }
+    
+    /* 오류 메시지 스타일 */
+    .error {
+      color: #ef4444;
+      margin-top: 8px;
     }
     
     /* 모바일 최적화 */

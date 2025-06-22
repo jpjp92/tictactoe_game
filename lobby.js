@@ -105,30 +105,106 @@ if (!window.lobbyJS.initialized) {
   }
 
   /**
-   * 실시간 방 목록 업데이트를 위한 구독 설정
+   * 실시간 방 목록 구독 설정
    */
   function setupRealtimeSubscription() {
-    // 이전 구독이 있으면 해제
     if (roomSubscription) {
-      roomSubscription.unsubscribe();
-    }
-    
-    // Supabase가 준비되지 않은 경우 처리
-    if (!supabase) {
-      console.error('Supabase 클라이언트가 준비되지 않아 실시간 구독을 설정할 수 없습니다.');
-      return;
+      try {
+        roomSubscription.unsubscribe();
+      } catch (e) {
+        console.log('이전 구독 해제 오류:', e);
+      }
     }
     
     try {
+      // 새 구독 설정
+      console.log('실시간 방 목록 구독 시작...');
       roomSubscription = supabase
-        .channel('room-changes')
+        .channel('rooms-channel')
         .on('postgres_changes', 
-          { event: '*', schema: 'public', table: 'rooms' }, 
-          () => loadRooms()
+          { event: '*', schema: 'public', table: 'rooms' },
+          (payload) => {
+            console.log('실시간 방 목록 업데이트:', payload);
+            
+            // payload.eventType에 따라 처리
+            if (payload.eventType === 'INSERT') {
+              // 새 방 추가
+              addRoomToList(payload.new);
+            } else if (payload.eventType === 'UPDATE') {
+              // 방 정보 업데이트 (상대방 입장 등)
+              updateRoomInList(payload.new);
+              
+              // 내가 참여중인 방인 경우 - 상대방이 참여했으면 알림
+              if (currentGame && currentGame.id === payload.new.id) {
+                if (payload.new.guest_id && !currentGame.guest_id) {
+                  console.log('상대방이 입장했습니다!', payload.new);
+                  alert('상대방이 입장했습니다.');
+                  
+                  // 게임 시작
+                  startGame(payload.new);
+                }
+              }
+              
+              // 내가 초대받은 방인 경우 - 게임 상태 변경
+              if (payload.new.guest_id === currentPlayer.id && payload.new.status === 'playing') {
+                console.log('게임이 시작되었습니다.', payload.new);
+                
+                // 게임 화면으로 전환
+                startGame(payload.new);
+              }
+            } else if (payload.eventType === 'DELETE') {
+              // 방 삭제
+              removeRoomFromList(payload.old.id);
+            }
+          }
         )
-        .subscribe();
+        .subscribe((status) => {
+          console.log('방 목록 구독 상태:', status);
+          if (status !== 'SUBSCRIBED') {
+            console.error('방 목록 구독 실패:', status);
+          }
+        });
     } catch (error) {
       console.error('실시간 구독 설정 오류:', error);
+    }
+  }
+
+  /**
+   * 방 목록에서 특정 방 정보 업데이트
+   */
+  function updateRoomInList(room) {
+    // 방 목록에서 해당 ID의 방 찾기
+    const roomElement = document.querySelector(`.room-item[data-id="${room.id}"]`);
+    
+    if (roomElement) {
+      // 방 상태가 'waiting'이고 주인이 내가 아닌 경우에만 참여 가능
+      const isMyRoom = room.host_id === currentPlayer.id;
+      const canJoin = room.status === 'waiting' && !isMyRoom && !room.guest_id;
+      const hasGuest = !!room.guest_id;
+      const joinButton = roomElement.querySelector('.join-button');
+      
+      // 이미 게스트가 있으면 버튼 비활성화
+      if (joinButton) {
+        if (hasGuest) {
+          joinButton.textContent = '진행 중';
+          joinButton.disabled = true;
+          joinButton.classList.add('in-progress');
+        } else {
+          joinButton.disabled = false;
+          joinButton.textContent = '참여';
+          joinButton.classList.remove('in-progress');
+        }
+      }
+      
+      // 상태 텍스트 업데이트
+      const statusElement = roomElement.querySelector('.room-status');
+      if (statusElement) {
+        statusElement.textContent = hasGuest ? '진행 중' : '대기 중';
+        statusElement.className = `room-status ${hasGuest ? 'in-progress' : 'waiting'}`;
+      }
+    } else {
+      // 방이 목록에 없으면 추가
+      addRoomToList(room);
     }
   }
 
