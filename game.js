@@ -55,13 +55,31 @@ if (!window.gameJS.initialized) {
     const isHost = room.host_id === player.id;
     playerSymbol = isHost ? 'X' : 'O';
     
+    // 플레이어 이름 표시
+    if (player1Name) {
+      player1Name.textContent = room.host?.name || player.name;
+    }
+    if (player2Name && room.guest_id) {
+      player2Name.textContent = room.guest?.name || '게스트';
+    } else if (player2Name) {
+      player2Name.textContent = '대기 중...';
+    }
+    
     // 게임 보드 초기화 (보드 그리기)
     setupGame();
     
     // 실시간 게임 상태 구독
     setupRealtimeGame();
     
-    // 보드 가시성 명시적 체크
+    // 현재 턴 확인
+    isMyTurn = room.current_turn === player.id;
+    statusText.textContent = isMyTurn ? '당신의 턴입니다!' : '상대방의 턴입니다';
+    
+    // 턴 표시 업데이트
+    player1Info.classList.toggle('active', room.current_turn === room.host_id);
+    player2Info.classList.toggle('active', room.current_turn === room.guest_id);
+    
+    // 보드 가시성 확인을 위한 디버깅 로그
     setTimeout(() => {
       if (gameBoard) {
         console.log('게임 보드 요소 스타일:', {
@@ -71,47 +89,136 @@ if (!window.gameJS.initialized) {
           children: gameBoard.children.length
         });
       }
-    }, 1000);
+    }, 500);
   });
 
   /**
-   * 방 상세 정보 가져오기
+   * 게임 초기 설정
    */
-  const fetchRoomDetails = async () => {
-    try {
-      const { data: room, error } = await supabase
-        .from('rooms')
-        .select(`
-          id, 
-          name, 
-          host_id, 
-          guest_id,
-          current_turn,
-          board_state,
-          status,
-          host:host_id(name),
-          guest:guest_id(name)
-        `)
-        .eq('id', currentGame.id)
-        .single();
-        
-      if (error) throw error;
-      
-      if (room) {
-        currentGame = room;
-        
-        // 방 정보 업데이트
-        roomTitle.textContent = room.name;
-        player1Name.textContent = room.host?.name || '방장';
-        player2Name.textContent = room.guest?.name || '대기 중...';
-        
-        // 게임 상태 업데이트
-        updateGameState(room);
+  const setupGame = () => {
+    console.log('게임 보드 초기화 시작');
+    
+    // gameBoard 요소가 존재하는지 확인
+    if (!gameBoard) {
+      console.error('게임 보드 요소를 찾을 수 없습니다!');
+      return;
+    }
+    
+    // 보드 크기 설정
+    gameBoard.innerHTML = '';
+    
+    // 게임 보드 스타일 직접 설정
+    gameBoard.style.gridTemplateColumns = `repeat(${boardSize}, 1fr)`;
+    gameBoard.style.display = 'grid';
+    gameBoard.style.width = '100%';
+    gameBoard.style.maxWidth = boardSize === 3 ? '300px' : '400px';
+    gameBoard.style.margin = '20px auto';
+    gameBoard.style.padding = '10px';
+    gameBoard.style.gap = '10px';
+    gameBoard.style.background = 'rgba(0, 0, 0, 0.05)';
+    gameBoard.style.borderRadius = '8px';
+    gameBoard.style.boxShadow = '0 2px 10px rgba(0, 0, 0, 0.1)';
+    
+    // 초기 보드 상태 설정 (이미 보드 상태가 있으면 사용, 없으면 빈 배열 생성)
+    if (!cells || !cells.length || cells.length !== boardSize * boardSize) {
+      cells = Array(boardSize * boardSize).fill('');
+    }
+    
+    // 보드 그리기
+    drawBoard();
+    console.log('게임 보드 초기화 완료:', { boardSize, cells });
+  };
+
+  /**
+   * 실시간 게임 구독 설정
+   */
+  const setupRealtimeGame = () => {
+    // 이전 구독이 있으면 해제
+    if (gameSubscription) {
+      try {
+        gameSubscription.unsubscribe();
+      } catch (e) {
+        console.log('구독 해제 오류:', e);
       }
+    }
+    
+    // 새 구독 설정
+    try {
+      gameSubscription = supabase
+        .channel(`room:${currentGame.id}`)
+        .on('postgres_changes', 
+          { event: 'UPDATE', schema: 'public', table: 'rooms', filter: `id=eq.${currentGame.id}` },
+          (payload) => {
+            // 방 정보가 업데이트되면 게임 상태 업데이트
+            console.log('실시간 업데이트 수신:', payload.new);
+            updateGameState(payload.new);
+          }
+        )
+        .subscribe((status) => {
+          console.log('Subscription status:', status);
+        });
     } catch (error) {
-      console.error('방 상세정보 가져오기 오류:', error);
+      console.error('실시간 구독 설정 오류:', error);
     }
   };
+
+  /**
+   * 게임 보드 그리기
+   */
+  function drawBoard() {
+    console.log('게임 보드 그리기 시작');
+    gameBoard.innerHTML = '';
+    
+    cells.forEach((cell, index) => {
+      const div = document.createElement("div");
+      div.className = "cell";
+      div.dataset.index = index;
+      
+      // 셀 스타일 직접 적용
+      div.style.backgroundColor = "rgba(255, 255, 255, 0.8)";
+      div.style.borderRadius = "6px";
+      div.style.boxShadow = "0 2px 5px rgba(0, 0, 0, 0.1)";
+      div.style.border = "1px solid rgba(0, 0, 0, 0.05)";
+      div.style.aspectRatio = "1";
+      div.style.display = "flex";
+      div.style.alignItems = "center";
+      div.style.justifyContent = "center";
+      div.style.fontSize = boardSize === 3 ? "2.5rem" : "2rem";
+      div.style.fontWeight = "bold";
+      div.style.cursor = "pointer";
+      div.style.transition = "all 0.2s";
+
+      if (cell === "X" || cell === "O") {
+        const span = document.createElement("span");
+        span.textContent = cell;
+        span.className = cell === "X" ? "x" : "o";
+        span.style.color = cell === "X" ? "#3b82f6" : "#ef4444";
+        div.appendChild(span);
+      }
+
+      // 셀 클릭 이벤트
+      div.addEventListener("click", () => {
+        console.log(`셀 ${index} 클릭됨, 현재 턴: ${isMyTurn}, 셀 값: '${cell}'`);
+        handleCellClick(index);
+      });
+      
+      // 호버 효과
+      div.addEventListener("mouseenter", () => {
+        if (cell === '' && isMyTurn) {
+          div.style.backgroundColor = "rgba(255, 255, 255, 1)";
+          div.style.transform = "scale(1.05)";
+        }
+      });
+      div.addEventListener("mouseleave", () => {
+        div.style.backgroundColor = "rgba(255, 255, 255, 0.8)";
+        div.style.transform = "scale(1)";
+      });
+      
+      gameBoard.appendChild(div);
+    });
+    
+    console.log('게임 보드 그리기 완료');
+  }
 
   /**
    * 게임 상태 업데이트
@@ -125,6 +232,7 @@ if (!window.gameJS.initialized) {
           ? JSON.parse(room.board_state) 
           : room.board_state;
           
+        // 보드 다시 그리기
         drawBoard();
       } catch (e) {
         console.error('보드 상태 파싱 오류:', e);
@@ -144,110 +252,37 @@ if (!window.gameJS.initialized) {
       player2Info.classList.toggle('active', room.current_turn === room.guest_id);
       
       statusText.textContent = isMyTurn ? '당신의 턴입니다!' : '상대방의 턴입니다';
+      
+      // 플레이어 이름 업데이트
+      if (room.host && player1Name) {
+        player1Name.textContent = room.host.name;
+      }
+      if (room.guest && player2Name) {
+        player2Name.textContent = room.guest.name;
+      }
     } else if (room.status === 'finished') {
       gameOver(room);
     }
   };
 
   /**
-   * 게임 초기 설정
-   */
-  const setupGame = () => {
-    console.log('게임 보드 초기화 시작');
-    
-    // gameBoard 요소가 존재하는지 확인
-    if (!gameBoard) {
-      console.error('게임 보드 요소를 찾을 수 없습니다!');
-      return;
-    }
-    
-    // 보드 크기 설정
-    gameBoard.innerHTML = '';
-    gameBoard.style.gridTemplateColumns = `repeat(${boardSize}, minmax(50px, 1fr))`;
-    gameBoard.style.display = 'grid';  // 명시적으로 그리드로 설정
-    gameBoard.style.width = '100%';    // 너비 설정
-    gameBoard.style.maxWidth = '500px'; // 최대 너비 제한
-    gameBoard.style.margin = '20px auto'; // 가운데 정렬
-    
-    // 초기 보드 상태 설정
-    cells = Array(boardSize * boardSize).fill('');
-    
-    // 보드 그리기
-    drawBoard();
-    console.log('게임 보드 초기화 완료:', { boardSize, cells });
-  };
-
-  /**
-   * 실시간 게임 구독 설정
-   */
-  const setupRealtimeGame = () => {
-    // 이전 구독이 있으면 해제
-    if (gameSubscription) {
-      gameSubscription.unsubscribe();
-    }
-    
-    // 새 구독 설정
-    gameSubscription = supabase
-      .channel(`room:${currentGame.id}`)
-      .on('postgres_changes', 
-        { event: 'UPDATE', schema: 'public', table: 'rooms', filter: `id=eq.${currentGame.id}` },
-        (payload) => {
-          // 방 정보가 업데이트되면 게임 상태 업데이트
-          updateGameState(payload.new);
-        }
-      )
-      .subscribe();
-  };
-
-  /**
-   * 게임 보드 그리기
-   */
-  function drawBoard() {
-    console.log('게임 보드 그리기 시작');
-    gameBoard.innerHTML = '';
-    
-    cells.forEach((cell, index) => {
-      const div = document.createElement("div");
-      div.className = "cell";
-      div.dataset.index = index; // 인덱스 저장
-    
-      // 셀 스타일 직접 설정
-      div.style.backgroundColor = "rgba(255, 255, 255, 0.5)";
-      div.style.borderRadius = "4px";
-      div.style.aspectRatio = "1";
-      div.style.display = "flex";
-      div.style.alignItems = "center";
-      div.style.justifyContent = "center";
-      div.style.fontSize = "2rem";
-      div.style.fontWeight = "bold";
-      div.style.cursor = "pointer";
-      div.style.margin = "2px";
-
-      if (cell === "X" || cell === "O") {
-        const span = document.createElement("span");
-        span.textContent = cell;
-        span.className = cell === "X" ? "x" : "o";
-        span.style.color = cell === "X" ? "#3b82f6" : "#ef4444";
-        div.appendChild(span);
-      }
-
-      div.addEventListener("click", () => handleCellClick(index), { passive: true });
-      gameBoard.appendChild(div);
-    });
-    
-    console.log('게임 보드 그리기 완료');
-  }
-
-  /**
    * 셀 클릭 처리
    */
   async function handleCellClick(index) {
     // 내 턴이 아니거나 이미 채워진 셀이면 클릭 무시
-    if (!isMyTurn || cells[index] !== '') return;
+    if (!isMyTurn || cells[index] !== '') {
+      console.log('유효하지 않은 클릭:', { isMyTurn, cellValue: cells[index] });
+      return;
+    }
+    
+    console.log(`셀 ${index}에 ${playerSymbol} 표시`);
     
     try {
       // 로컬 상태 업데이트
       cells[index] = playerSymbol;
+      
+      // 임시로 보드 업데이트 (즉각적인 피드백)
+      drawBoard();
       
       // 승리 확인
       const isWinner = checkWin(playerSymbol);
@@ -265,6 +300,13 @@ if (!window.gameJS.initialized) {
       const nextTurn = isWinner || isDraw ? currentPlayer.id : opponentId;
       
       // Supabase 업데이트
+      console.log('Supabase 업데이트:', {
+        board_state: cells,
+        current_turn: nextTurn,
+        status: newStatus,
+        winner_id: isWinner ? currentPlayer.id : null
+      });
+      
       const { error } = await supabase
         .from('rooms')
         .update({
@@ -276,6 +318,10 @@ if (!window.gameJS.initialized) {
         .eq('id', currentGame.id);
       
       if (error) throw error;
+      
+      // 임시 UI 업데이트 (즉시 피드백)
+      isMyTurn = false;
+      statusText.textContent = isWinner ? '승리했습니다! 🎉' : isDraw ? '무승부입니다! 🤝' : '상대방의 턴입니다';
       
       // 게임이 끝나면 히스토리 저장
       if (isWinner || isDraw) {
@@ -311,7 +357,7 @@ if (!window.gameJS.initialized) {
     // 대각선 (왼쪽 위에서 오른쪽 아래)
     let diag1 = true;
     for (let i = 0; i < boardSize; i++) {
-      if (cells[i*(boardSize+1)] !== symbol) diag1 = false;
+      if (cells[i*boardSize + i] !== symbol) diag1 = false;
     }
     if (diag1) return true;
     
@@ -400,53 +446,6 @@ if (!window.gameJS.initialized) {
   if (leaveGameButton) {
     leaveGameButton.addEventListener('click', leaveGame);
   }
-
-  // 게임 보드에 필요한 추가 스타일
-  document.head.insertAdjacentHTML('beforeend', `
-    <style>
-      #game-board {
-        display: grid;
-        gap: 5px;
-        margin: 20px auto;
-        max-width: 500px;
-      }
-      
-      .cell {
-        aspect-ratio: 1;
-        background: rgba(255, 255, 255, 0.5);
-        border-radius: 4px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 2rem;
-        font-weight: bold;
-        cursor: pointer;
-        transition: all 0.2s;
-      }
-      
-      .cell:hover {
-        background: rgba(255, 255, 255, 0.7);
-      }
-      
-      .x {
-        color: #3b82f6;
-      }
-      
-      .o {
-        color: #ef4444;
-      }
-      
-      .pop {
-        animation: pop 0.3s ease-out;
-      }
-      
-      @keyframes pop {
-        0% { transform: scale(0.5); opacity: 0.5; }
-        70% { transform: scale(1.2); }
-        100% { transform: scale(1); opacity: 1; }
-      }
-    </style>
-  `);
   
   // 이미 실행되었음을 표시
   window.gameJS.initialized = true;
