@@ -4,20 +4,24 @@ const path = require('path');
 try {
   console.log('빌드 프로세스 시작...');
   
-  // public 디렉토리 생성
+  // public 디렉토리 확인 및 생성
   const publicDir = path.join(__dirname, 'public');
   if (!fs.existsSync(publicDir)) {
     fs.mkdirSync(publicDir, { recursive: true });
-  } else {
-    // 기존 public 디렉토리 내의 파일 삭제 (중복 방지)
-    const files = fs.readdirSync(publicDir);
-    for (const file of files) {
-      const filePath = path.join(publicDir, file);
+    console.log('public 디렉토리 생성됨');
+  }
+  
+  // 기존 파일 정리
+  const files = fs.readdirSync(publicDir);
+  for (const file of files) {
+    const filePath = path.join(publicDir, file);
+    if (fs.statSync(filePath).isFile()) {
       fs.unlinkSync(filePath);
+      console.log(`${file} 삭제됨`);
     }
   }
   
-  // 파일 복사
+  // 복사할 파일 목록
   const filesToCopy = [
     'index.html',
     'style.css',
@@ -27,7 +31,7 @@ try {
     'game.js'
   ];
   
-  console.log('파일 복사 시작...');
+  // 파일 복사
   for (const file of filesToCopy) {
     const sourcePath = path.join(__dirname, file);
     const destPath = path.join(publicDir, file);

@@ -85,24 +85,42 @@
   <!-- Supabase 라이브러리 -->
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   
-  <!-- 애플리케이션 스크립트 -->
-  <script src="supabase.js"></script>
-  <script src="login.js"></script>
-  <script src="lobby.js"></script>
-  <script src="game.js"></script>
-  
-  <!-- index.html -->
+  <!-- 모듈 로딩 방식으로 변경 -->
   <script>
-    // 스크립트 로드 실패 처리
-    window.onerror = function(msg, src) {
-      if (src.includes('.js')) {
-        console.error('스크립트 로드 오류:', msg, src);
-        const errorDiv = document.createElement('div');
-        errorDiv.className = 'error-message';
-        errorDiv.textContent = '애플리케이션 로드 중 오류가 발생했습니다.';
-        document.body.prepend(errorDiv);
+    // 스크립트가 이미 로드되었는지 확인하는 함수
+    function loadScriptOnce(src) {
+      const scriptId = `script-${src.replace(/[^a-zA-Z0-9]/g, '-')}`;
+      
+      // 이미 로드된 스크립트인지 확인
+      if (document.getElementById(scriptId)) {
+        return Promise.resolve();
       }
-    };
+      
+      return new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.id = scriptId;
+        script.src = src;
+        script.onload = resolve;
+        script.onerror = reject;
+        document.body.appendChild(script);
+      });
+    }
+    
+    // 스크립트 순차적으로 로드
+    async function loadScripts() {
+      try {
+        await loadScriptOnce('supabase.js');
+        await loadScriptOnce('login.js');
+        await loadScriptOnce('lobby.js');
+        await loadScriptOnce('game.js');
+        console.log('모든 스크립트가 성공적으로 로드되었습니다.');
+      } catch (error) {
+        console.error('스크립트 로드 중 오류 발생:', error);
+      }
+    }
+    
+    // 스크립트 로드 시작
+    loadScripts();
   </script>
 </body>
 </html>
