@@ -3,24 +3,77 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Tic Tac Toe</title>
+  <title>Multiplayer Tic Tac Toe</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <h1>Tic Tac Toe</h1>
+  <h1>Multiplayer Tic Tac Toe</h1>
   
-  <div id="game-options">
-    <button id="size-3x3" class="size-btn active">3x3</button>
-    <button id="size-5x5" class="size-btn">5x5</button>
+  <!-- Login Screen -->
+  <div id="login-screen" class="screen">
+    <h2>Login / Register</h2>
+    <div class="form-group">
+      <input type="text" id="player-name" placeholder="Enter your name" />
+      <button id="login-button">Enter Game</button>
+      <p id="login-error" class="error"></p>
+    </div>
   </div>
   
-  <div id="scoreboard">
-    <div class="score"><span class="x">X</span>: <span id="x-score">0</span></div>
-    <div class="score"><span class="o">O</span>: <span id="o-score">0</span></div>
+  <!-- Lobby Screen -->
+  <div id="lobby-screen" class="screen hidden">
+    <h2>Game Lobby</h2>
+    <p>Welcome, <span id="player-display-name"></span>!</p>
+    
+    <div class="lobby-actions">
+      <div class="create-room">
+        <h3>Create New Game</h3>
+        <input type="text" id="room-name" placeholder="Room Name" />
+        <div id="game-options">
+          <button id="size-3x3-create" class="size-btn active">3x3</button>
+          <button id="size-5x5-create" class="size-btn">5x5</button>
+        </div>
+        <button id="create-room-button">Create Room</button>
+      </div>
+      
+      <div class="room-list-container">
+        <h3>Available Rooms</h3>
+        <div id="room-list" class="room-list">
+          <p class="loading">Loading rooms...</p>
+        </div>
+        <button id="refresh-rooms">Refresh List</button>
+      </div>
+    </div>
   </div>
-  <div id="game-board"></div>
-  <p id="status">X's turn</p>
-  <button id="restart">Restart Game</button>
-  <script src="script.js"></script>
+  
+  <!-- Game Screen -->
+  <div id="game-screen" class="screen hidden">
+    <h2 id="room-title">Game Room</h2>
+    
+    <div class="game-info">
+      <div class="player-info">
+        <div id="player1-info" class="player active">
+          <span class="x">X</span>: <span id="player1-name">Player 1</span>
+        </div>
+        <div id="player2-info" class="player">
+          <span class="o">O</span>: <span id="player2-name">Player 2</span>
+        </div>
+      </div>
+    </div>
+    
+    <div id="game-board"></div>
+    <p id="status">Waiting for opponent...</p>
+    <div class="game-actions">
+      <button id="leave-game">Leave Game</button>
+    </div>
+  </div>
+
+  <!-- Supabase 라이브러리 -->
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  
+  <!-- 모듈 방식으로 JS 파일 가져오기 -->
+  <script src="supabase.js" type="module"></script>
+  <script src="login.js" type="module"></script>
+  <script src="lobby.js" type="module"></script>
+  <script src="game.js" type="module"></script>
 </body>
 </html>
