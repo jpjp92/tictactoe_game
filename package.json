@@ -2,6 +2,6 @@
   "name": "tictactoe_game",
   "version": "1.0.0",
   "scripts": {
-    "build": "node inject-env.js && cp -r *.html *.js *.css public/"
+    "build": "mkdir -p public && node inject-env.js && cp *.html *.css *.js public/ || true"
   }
 }

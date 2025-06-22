@@ -1,13 +1,10 @@
 {
   "version": 2,
-  "outputDirectory": ".",
   "builds": [
     {
       "src": "package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "."
-      }
+      "use": "@vercel/static-build"
     }
-  ]
+  ],
+  "outputDirectory": "public"
 }
