@@ -15,13 +15,13 @@ if (window.location.hostname === 'localhost' || window.location.hostname === '12
   SUPABASE_URL = window.ENV_SUPABASE_URL || '';
   SUPABASE_ANON_KEY = window.ENV_SUPABASE_ANON_KEY || '';
   
-  // Vercel의 환경 변수가 템플릿 문자열 그대로 있는 경우 처리
-  if (SUPABASE_URL.includes('{{NEXT_PUBLIC_SUPABASE_URL}}')) {
+  // 환경 변수가 플레이스홀더인 경우 처리
+  if (SUPABASE_URL === '__SUPABASE_URL__' || SUPABASE_URL.includes('{{')) {
     console.error('환경 변수가 제대로 설정되지 않았습니다.');
     SUPABASE_URL = '';
   }
   
-  if (SUPABASE_ANON_KEY.includes('{{NEXT_PUBLIC_SUPABASE_ANON_KEY}}')) {
+  if (SUPABASE_ANON_KEY === '__SUPABASE_ANON_KEY__' || SUPABASE_ANON_KEY.includes('{{')) {
     console.error('환경 변수가 제대로 설정되지 않았습니다.');
     SUPABASE_ANON_KEY = '';
   }
@@ -32,21 +32,39 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
   console.error('Supabase 설정이 없습니다. config.js 파일 또는 환경 변수를 확인하세요.');
 }
 
-// URL 유효성 검사 추가
+// URL 유효성 검사와 수정
 try {
+  // 하드코딩된 기본값은 제거하고, 대신 오류 메시지 표시
+  if (!SUPABASE_URL || SUPABASE_URL === '') {
+    throw new Error('유효한 Supabase URL이 설정되지 않았습니다');
+  }
+  
+  if (!SUPABASE_ANON_KEY || SUPABASE_ANON_KEY === '') {
+    throw new Error('유효한 Supabase Anon Key가 설정되지 않았습니다');
+  }
+
   // URL이 유효한지 확인 (프로토콜 포함 여부)
-  if (SUPABASE_URL && !SUPABASE_URL.startsWith('http')) {
+  if (!SUPABASE_URL.startsWith('http')) {
     SUPABASE_URL = 'https://' + SUPABASE_URL;
   }
   
-  console.log('Supabase 연결 정보:', { url: SUPABASE_URL, key: SUPABASE_ANON_KEY ? '설정됨' : '없음' });
+  // 유효한 URL인지 테스트
+  new URL(SUPABASE_URL);
   
   // Supabase 클라이언트 생성
   const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   
   // 전역 변수로 내보내기
   window.supabaseClient = supabase;
+  console.log('Supabase 클라이언트가 성공적으로 초기화되었습니다.');
 } catch (error) {
   console.error('Supabase 클라이언트 생성 오류:', error);
+  
+  // 오류 메시지를 UI에 표시
+  const loginError = document.getElementById('login-error');
+  if (loginError) {
+    loginError.textContent = '서버 연결에 문제가 있습니다. 나중에 다시 시도해주세요.';
+  }
+  
   window.supabaseClient = null;
 }

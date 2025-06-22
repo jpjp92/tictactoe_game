@@ -1,4 +1,5 @@
-import { supabase } from './supabase.js';
+// Supabase 클라이언트를 전역 변수로 가져오기
+const supabase = window.supabaseClient;
 
 // DOM 요소
 const loginScreen = document.getElementById('login-screen');
@@ -126,6 +127,6 @@ playerNameInput.addEventListener('keypress', (e) => {
 // 페이지 로드 시 로그인 상태 확인
 window.addEventListener('DOMContentLoaded', checkExistingLogin);
 
-// 다른 모듈에서 사용할 함수 내보내기
-export const getPlayer = () => currentPlayer;
-export { logout };
+// 전역 객체에 함수 내보내기
+window.getPlayer = () => currentPlayer;
+window.logout = logout;
