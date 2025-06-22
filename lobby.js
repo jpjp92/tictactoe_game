@@ -1,18 +1,16 @@
 // DOM 요소
+// 이미 선언된 변수인지 확인 후 선언
 if (typeof lobbyScreen === 'undefined') {
   var lobbyScreen = document.getElementById('lobby-screen');
 }
+
 if (typeof gameScreen === 'undefined') {
   var gameScreen = document.getElementById('game-screen');
 }
 
-const roomNameInput = document.getElementById('room-name');
-const createRoomButton = document.getElementById('create-room-button');
-const roomList = document.getElementById('room-list');
-const refreshRoomsButton = document.getElementById('refresh-rooms');
-const size3x3CreateBtn = document.getElementById('size-3x3-create');
-const size5x5CreateBtn = document.getElementById('size-5x5-create');
-const playerDisplayName = document.getElementById('player-display-name');
+if (typeof playerDisplayName === 'undefined') {
+  var playerDisplayName = document.getElementById('player-display-name');
+}
 
 // 상태 변수
 if (typeof currentPlayer === 'undefined') {
@@ -25,8 +23,10 @@ if (typeof roomSubscription === 'undefined') {
   var roomSubscription = null;
 }
 
-// Supabase 클라이언트 가져오기
-var supabase = window.supabaseClient;
+// 전역 스코프에 var로 선언
+if (typeof supabase === 'undefined') {
+  var supabase = window.supabaseClient;
+}
 
 /**
  * 로비 초기화
@@ -142,24 +142,23 @@ function setupRealtimeSubscription() {
  * 새 방 생성
  */
 async function createRoom() {
-  const roomName = roomNameInput.value.trim();
-  
-  if (!roomName) {
-    alert('방 이름을 입력해주세요');
-    return;
-  }
-  
-  createRoomButton.disabled = true;
-  
   try {
-    // Supabase가 준비되지 않은 경우 처리
-    if (!supabase) {
-      alert('서버 연결에 실패했습니다. 나중에 다시 시도해주세요.');
-      createRoomButton.disabled = false;
+    const roomName = roomNameInput.value.trim();
+    
+    if (!roomName) {
+      alert('방 이름을 입력해주세요.');
       return;
     }
     
-    // 빈 보드 상태 생성
+    if (!currentPlayer || !currentPlayer.id) {
+      alert('로그인이 필요합니다.');
+      return;
+    }
+    
+    createRoomButton.disabled = true;
+    console.log('방 생성 시도:', { roomName, boardSize: selectedBoardSize, playerId: currentPlayer.id });
+    
+    // 빈 보드 상태 생성 (배열 형식으로)
     const emptyBoardState = Array(selectedBoardSize * selectedBoardSize).fill('');
     
     const newRoom = {
@@ -168,8 +167,11 @@ async function createRoom() {
       host_id: currentPlayer.id,
       current_turn: currentPlayer.id,
       status: 'waiting',
-      board_state: emptyBoardState
+      board_state: emptyBoardState,
+      created_at: new Date().toISOString()
     };
+    
+    console.log('Supabase에 전송할 데이터:', newRoom);
     
     const { data: room, error } = await supabase
       .from('rooms')
@@ -177,16 +179,19 @@ async function createRoom() {
       .select()
       .single();
     
-    if (error) throw error;
+    if (error) {
+      console.error('방 생성 중 Supabase 오류:', error);
+      throw error;
+    }
     
-    // 생성된 방으로 입장
+    console.log('방 생성 성공:', room);
+    
+    // 방 생성 성공 후 입장
     joinRoom(room.id);
     
-    // 입력 필드 초기화
-    roomNameInput.value = '';
   } catch (error) {
     console.error('방 생성 오류:', error);
-    alert('방 생성에 실패했습니다. 다시 시도해주세요.');
+    alert('방 생성에 실패했습니다: ' + (error.message || '알 수 없는 오류'));
   } finally {
     createRoomButton.disabled = false;
   }
@@ -298,4 +303,17 @@ size3x3CreateBtn.addEventListener('click', () => setBoardSize(3));
 size5x5CreateBtn.addEventListener('click', () => setBoardSize(5));
 roomNameInput.addEventListener('keypress', (e) => {
   if (e.key === 'Enter') createRoom();
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+  console.log('DOM 로드됨, 요소 확인:');
+  console.log('createRoomButton:', createRoomButton);
+  console.log('roomNameInput:', roomNameInput);
+  
+  if (createRoomButton) {
+    createRoomButton.addEventListener('click', () => {
+      console.log('방 생성 버튼 클릭됨');
+      createRoom();
+    });
+  }
 });

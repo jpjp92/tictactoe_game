@@ -2,11 +2,21 @@
   "name": "tictactoe_game",
   "version": "1.0.0",
   "scripts": {
+    "dev": "serve -s .",
     "build": "node build.js",
-    "dev": "serve .",
     "clean": "rm -rf public/*"
   },
   "devDependencies": {
     "serve": "^14.0.0"
+  },
+  "html": {
+    "head": {
+      "link": [
+        {
+          "rel": "icon",
+          "href": "data:,"
+        }
+      ]
+    }
   }
 }
