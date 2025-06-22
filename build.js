@@ -4,18 +4,18 @@ const path = require('path');
 try {
   console.log('빌드 프로세스 시작...');
   
-  // public 디렉토리 생성 및 비우기
+  // public 디렉토리 생성
   const publicDir = path.join(__dirname, 'public');
-  if (fs.existsSync(publicDir)) {
-    // 기존 파일 제거
-    fs.readdirSync(publicDir).forEach(file => {
-      fs.unlinkSync(path.join(publicDir, file));
-    });
-  } else {
-    fs.mkdirSync(publicDir);
+  if (!fs.existsSync(publicDir)) {
+    fs.mkdirSync(publicDir, { recursive: true });
   }
   
   console.log('public 디렉토리 준비 완료');
+
+  // 기존 파일 삭제
+  fs.readdirSync(publicDir).forEach(file => {
+    fs.unlinkSync(path.join(publicDir, file));
+  });
 
   // 주요 파일 목록
   const filesToCopy = [
@@ -60,5 +60,13 @@ try {
   console.log('빌드 완료!');
 } catch (error) {
   console.error('빌드 중 오류 발생:', error);
+  process.exit(1);
+}
+
+// build.js에 추가
+if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
+  console.error('필수 환경 변수가 설정되지 않았습니다!');
+  console.error('SUPABASE_URL:', process.env.SUPABASE_URL ? '설정됨' : '없음');
+  console.error('SUPABASE_ANON_KEY:', process.env.SUPABASE_ANON_KEY ? '설정됨' : '없음');
   process.exit(1);
 }

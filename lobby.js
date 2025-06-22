@@ -1,5 +1,8 @@
 // DOM 요소
-const lobbyScreen = document.getElementById('lobby-screen');
+if (typeof lobbyScreen === 'undefined') {
+  const lobbyScreen = document.getElementById('lobby-screen');
+}
+
 const gameScreen = document.getElementById('game-screen');
 const roomNameInput = document.getElementById('room-name');
 const createRoomButton = document.getElementById('create-room-button');
@@ -15,7 +18,9 @@ let selectedBoardSize = 3;  // 기본 보드 크기는 3x3
 let roomSubscription = null;
 
 // Supabase 클라이언트 가져오기
-const supabase = window.supabaseClient;
+if (typeof supabase === 'undefined') {
+  const supabase = window.supabaseClient;
+}
 
 /**
  * 로비 초기화
