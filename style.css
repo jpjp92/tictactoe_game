@@ -53,12 +53,37 @@ h1 {
   color: #3b82f6;
 }
 
+#game-options {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.size-btn {
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.6);
+  border: 2px solid transparent;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  color: #374151;
+}
+
+.size-btn.active {
+  background: linear-gradient(to right, #6366f1, #ec4899);
+  color: white;
+  border-color: white;
+}
+
 #game-board {
   display: grid;
   grid-template-columns: repeat(5, minmax(50px, 1fr));
   gap: 15px;
   max-width: 500px;
   width: 100%;
+  transition: all 0.3s ease;
 }
 
 .cell {
@@ -138,5 +163,13 @@ button:hover {
     gap: 10px;
     align-items: center;
     justify-content: center;
+  }
+  #game-options {
+    gap: 5px;
+  }
+  
+  .size-btn {
+    padding: 6px 12px;
+    font-size: 0.9rem;
   }
 }
