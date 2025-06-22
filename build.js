@@ -7,7 +7,7 @@ try {
   // public 디렉토리 생성
   const publicDir = path.join(__dirname, 'public');
   if (!fs.existsSync(publicDir)) {
-    fs.mkdirSync(publicDir, { recursive: true });
+    fs.mkdirSync(publicDir);
   }
   
   console.log('public 디렉토리 준비 완료');

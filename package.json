@@ -3,6 +3,10 @@
   "version": "1.0.0",
   "scripts": {
     "build": "node build.js",
-    "dev": "serve ."
+    "dev": "serve .",
+    "clean": "rm -rf public/*"
+  },
+  "devDependencies": {
+    "serve": "^14.0.0"
   }
 }

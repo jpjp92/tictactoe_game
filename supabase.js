@@ -50,17 +50,14 @@ try {
 // supabase.js
 try {
   // API 키 유효성 확인을 위한 테스트
-  if (supabase) {
+  const supabaseClient = window.supabaseClient;
+  if (supabaseClient) {
     // 간단한 테스트 쿼리
-    supabase.from('players').select('count', { count: 'exact', head: true })
+    supabaseClient.from('players').select('count', { count: 'exact', head: true })
       .then(({ error }) => {
         if (error) {
           console.error('Supabase API 키 테스트 실패:', error);
           // 오류 메시지 표시
-          const loginError = document.getElementById('login-error');
-          if (loginError) {
-            loginError.textContent = 'Supabase 연결에 문제가 있습니다. API 키를 확인하세요.';
-          }
         } else {
           console.log('Supabase API 키가 유효합니다.');
         }
