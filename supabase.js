@@ -15,35 +15,54 @@ if (!window.supabaseUtils.initialized) {
 
   // 환경에 따른 설정 분기
   if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-    // 로컬 개발 환경
+    // 로컬 개발 환경 - config.js에서 설정 로드
     const config = window.supabaseConfig || {};
     SUPABASE_URL = config.SUPABASE_URL || '';
     SUPABASE_ANON_KEY = config.SUPABASE_ANON_KEY || '';
     console.log('로컬 개발 환경에서 실행 중입니다.');
+    
+    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+      console.error('로컬 개발 환경에서는 config.js 파일이 필요합니다.');
+      console.error('config.js 파일을 생성하고 Supabase 설정을 추가해주세요.');
+    }
   } else {
-    // 배포 환경
+    // 배포 환경 - 환경 변수를 사용 (GitHub Actions secrets/variables에서 주입됨)
     SUPABASE_URL = window.ENV_SUPABASE_URL || '';
     SUPABASE_ANON_KEY = window.ENV_SUPABASE_ANON_KEY || '';
     
-    // 환경 변수가 제대로 주입되지 않은 경우 임시 기본값 사용
+    // 환경 변수가 플레이스홀더인 경우 오류 처리
     if (SUPABASE_URL === '__SUPABASE_URL__' || SUPABASE_URL.includes('{{') || !SUPABASE_URL) {
-      console.warn('환경 변수가 주입되지 않아 기본값을 사용합니다.');
-      SUPABASE_URL = "https://axpvmgndefueicehdetu.supabase.co";
+      console.error('GitHub Actions에서 SUPABASE_URL이 제대로 주입되지 않았습니다.');
+      console.error('GitHub Repository Settings에서 Secrets 설정을 확인해주세요.');
+      SUPABASE_URL = '';
     }
     
     if (SUPABASE_ANON_KEY === '__SUPABASE_ANON_KEY__' || SUPABASE_ANON_KEY.includes('{{') || !SUPABASE_ANON_KEY) {
-      console.warn('환경 변수가 주입되지 않아 기본값을 사용합니다.');
-      SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF4cHZtZ25kZWZ1ZWljZWhkZXR1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQwMDI2MjYsImV4cCI6MjA0OTU3ODYyNn0.9fOKvYNUWWX4JxYHvW4-iHQ5UkuglEhM3b8l1OC4A9Q";
+      console.error('GitHub Actions에서 SUPABASE_ANON_KEY가 제대로 주입되지 않았습니다.');
+      console.error('GitHub Repository Settings에서 Secrets 설정을 확인해주세요.');
+      SUPABASE_ANON_KEY = '';
     }
   }
 
-  console.log('사용 중인 Supabase URL:', SUPABASE_URL.substring(0, 30) + '...');
-  console.log('사용 중인 Anon Key 길이:', SUPABASE_ANON_KEY.length);
+  // 환경 변수 상태 로깅 (값은 보안상 출력하지 않음)
+  console.log('Supabase URL 설정됨:', !!SUPABASE_URL);
+  console.log('Supabase Anon Key 설정됨:', !!SUPABASE_ANON_KEY);
+  if (SUPABASE_URL) {
+    console.log('사용 중인 Supabase URL 도메인:', SUPABASE_URL.substring(0, 30) + '...');
+  }
+  if (SUPABASE_ANON_KEY) {
+    console.log('사용 중인 Anon Key 길이:', SUPABASE_ANON_KEY.length);
+  }
 
   /**
    * Supabase 클라이언트 초기화
    */
   try {
+    // 필수 환경 변수 확인
+    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+      throw new Error('Supabase 환경 변수가 설정되지 않았습니다. 설정을 확인해주세요.');
+    }
+
     // URL 형식 보정 (프로토콜 확인)
     if (SUPABASE_URL && !SUPABASE_URL.startsWith('http')) {
       SUPABASE_URL = 'https://' + SUPABASE_URL;
@@ -54,13 +73,13 @@ if (!window.supabaseUtils.initialized) {
       new URL(SUPABASE_URL);
     } catch (urlError) {
       console.error('Supabase URL이 유효하지 않습니다:', SUPABASE_URL);
-      throw new Error('GitHub Actions secrets의 SUPABASE_URL 값이 올바르지 않습니다');
+      throw new Error('Supabase URL 형식이 올바르지 않습니다');
     }
     
     // 키 유효성 검사
     if (!SUPABASE_ANON_KEY || SUPABASE_ANON_KEY.length < 20) {
       console.error('Supabase Anon Key가 유효하지 않습니다.');
-      throw new Error('GitHub Actions secrets의 SUPABASE_ANON_KEY 값이 올바르지 않습니다');
+      throw new Error('Supabase Anon Key가 올바르지 않습니다');
     }
     
     // Supabase 클라이언트 생성
@@ -74,14 +93,13 @@ if (!window.supabaseUtils.initialized) {
     supabase.from('players').select('count', { count: 'exact', head: true })
       .then(({ error }) => {
         if (error) {
-          console.error('Supabase API 키 테스트 실패:', error);
-          console.error('GitHub Actions secrets에 설정된 값을 확인해주세요.');
+          console.error('Supabase API 연결 테스트 실패:', error);
           const loginError = document.getElementById('login-error');
           if (loginError) {
-            loginError.textContent = '서버 연결에 문제가 있습니다. 관리자에게 문의하세요.';
+            loginError.textContent = '서버 연결에 문제가 있습니다. 나중에 다시 시도해주세요.';
           }
         } else {
-          console.log('Supabase API 키가 유효합니다. GitHub Actions secrets이 잘 설정되었습니다.');
+          console.log('Supabase API 연결이 성공적으로 확인되었습니다.');
         }
       })
       .catch(err => {
@@ -90,13 +108,16 @@ if (!window.supabaseUtils.initialized) {
     
   } catch (error) {
     console.error('Supabase 클라이언트 초기화 오류:', error);
-    console.error('GitHub Actions secrets 설정을 확인해주세요.');
     window.supabaseClient = null;
     
     // 오류 메시지 UI 표시
     const loginError = document.getElementById('login-error');
     if (loginError) {
-      loginError.textContent = 'Supabase 연결에 문제가 있습니다. GitHub Actions 설정을 확인하세요.';
+      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        loginError.textContent = 'config.js 파일을 생성하고 Supabase 설정을 추가해주세요.';
+      } else {
+        loginError.textContent = 'Supabase 환경 설정에 문제가 있습니다. 관리자에게 문의하세요.';
+      }
     }
   }
 
