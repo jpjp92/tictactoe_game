@@ -138,3 +138,70 @@ input {
     max-height: 200px;
   }
 }
+
+/* 스크립트 관련 스타일 */
+<script type="module">
+  import { supabase } from './supabase.js';
+  import { getPlayer } from './login.js';
+
+  // DOM 요소
+  const lobbyScreen = document.getElementById('lobby-screen');
+  const gameScreen = document.getElementById('game-screen');
+  const roomNameInput = document.getElementById('room-name');
+  const createRoomButton = document.getElementById('create-room-button');
+  const roomList = document.getElementById('room-list');
+  const refreshRoomsButton = document.getElementById('refresh-rooms');
+  const size3x3CreateBtn = document.getElementById('size-3x3-create');
+  const size5x5CreateBtn = document.getElementById('size-5x5-create');
+
+  // 상태 변수
+  let currentPlayer = null;
+  let selectedBoardSize = 3;  // 기본 보드 크기는 3x3
+
+  // 로비 초기화
+  document.addEventListener('lobbyInitialize', (e) => {
+    currentPlayer = e.detail.player;
+    loadRooms();
+    setupRealtimeSubscription();
+  });
+
+  // 방 목록 로드
+  async function loadRooms() {
+    // ... 기존 코드 유지 ...
+  }
+
+  // 실시간 구독 설정
+  function setupRealtimeSubscription() {
+    // ... 기존 코드 유지 ...
+  }
+
+  // 방 생성
+  createRoomButton.addEventListener('click', async () => {
+    const roomName = roomNameInput.value.trim();
+    if (!roomName) return;
+
+    // 방 생성 로직
+    // ... 기존 코드 유지 ...
+  });
+
+  // 방 목록 새로 고침
+  refreshRoomsButton.addEventListener('click', () => {
+    loadRooms();
+  });
+
+  // 3x3 보드 크기 선택
+  size3x3CreateBtn.addEventListener('click', () => {
+    selectedBoardSize = 3;
+    // 버튼 스타일 업데이트
+    size3x3CreateBtn.classList.add('active');
+    size5x5CreateBtn.classList.remove('active');
+  });
+
+  // 5x5 보드 크기 선택
+  size5x5CreateBtn.addEventListener('click', () => {
+    selectedBoardSize = 5;
+    // 버튼 스타일 업데이트
+    size5x5CreateBtn.classList.add('active');
+    size3x3CreateBtn.classList.remove('active');
+  });
+</script>

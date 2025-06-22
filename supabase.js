@@ -35,4 +35,5 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
 // Supabase 클라이언트 생성
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-export { supabase };
+// export { supabase }; 대신
+window.supabaseClient = supabase;
