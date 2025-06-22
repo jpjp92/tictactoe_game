@@ -8,12 +8,18 @@
   
   <!-- 환경 변수 설정 스크립트 -->
   <script>
-    // Vercel에서 자동으로 환경 변수 주입
-    window.ENV_SUPABASE_URL = '{{NEXT_PUBLIC_SUPABASE_URL}}';
-    window.ENV_SUPABASE_ANON_KEY = '{{NEXT_PUBLIC_SUPABASE_ANON_KEY}}';
+    // Vercel 환경에서 환경 변수 사용 (빌드 시 실제 값으로 대체됨)
+    window.ENV_SUPABASE_URL = '__NEXT_PUBLIC_SUPABASE_URL__';
+    window.ENV_SUPABASE_ANON_KEY = '__NEXT_PUBLIC_SUPABASE_ANON_KEY__';
   </script>
-  <!-- 로컬 개발용 설정 (GitHub에 커밋하지 않음) -->
-  <script src="config.js"></script>
+  
+  <!-- 로컬 개발용 설정 (조건부 로드) -->
+  <script>
+    // 로컬 환경에서만 config.js를 로드
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      document.write('<script src="config.js"><\/script>');
+    }
+  </script>
 </head>
 <body>
   <h1>Multiplayer Tic Tac Toe</h1>
