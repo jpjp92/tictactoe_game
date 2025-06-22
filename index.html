@@ -5,6 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Multiplayer Tic Tac Toe</title>
   <link rel="stylesheet" href="style.css">
+  
+  <!-- 환경 변수 설정 스크립트 -->
+  <script>
+    // Vercel에서 자동으로 환경 변수 주입
+    window.ENV_SUPABASE_URL = '{{NEXT_PUBLIC_SUPABASE_URL}}';
+    window.ENV_SUPABASE_ANON_KEY = '{{NEXT_PUBLIC_SUPABASE_ANON_KEY}}';
+  </script>
+  <!-- 로컬 개발용 설정 (GitHub에 커밋하지 않음) -->
+  <script src="config.js"></script>
 </head>
 <body>
   <h1>Multiplayer Tic Tac Toe</h1>
