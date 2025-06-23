@@ -465,13 +465,27 @@ if (!window.lobbyJS.initialized) {
       
       console.log('✅ 방 생성 성공:', newRoom);
       
-      // 방 목록에 추가
-      addRoomToList(newRoom);
-      
       // 입력 필드 초기화
       roomNameElement.value = '';
       
-      alert(`방 "${roomName}"이 생성되었습니다!`);
+      // 🎯 방 생성 후 방장이 바로 대기실로 입장
+      const hostRoom = {
+        ...newRoom,
+        host: currentPlayer,
+        guest: null // 아직 게스트 없음
+      };
+      
+      console.log('🎮 방장으로 대기실 입장:', {
+        '방 ID': hostRoom.id,
+        '방 이름': hostRoom.name,
+        '방장': currentPlayer.name,
+        '상태': hostRoom.status
+      });
+      
+      alert(`방 "${roomName}"이 생성되었습니다! 상대방을 기다리는 중...`);
+      
+      // 게임 화면으로 전환 (대기 모드)
+      startGameAsHost(hostRoom);
       
     } catch (error) {
       console.error('❌ 방 생성 오류:', error);
@@ -592,7 +606,38 @@ if (!window.lobbyJS.initialized) {
   }
 
   /**
-   * 게임 시작
+   * 방장으로 게임 시작 (게스트 대기 모드)
+   */
+  function startGameAsHost(room) {
+    // 구독 해제 (게임 화면으로 이동)
+    if (roomSubscription) {
+      roomSubscription.unsubscribe();
+      roomSubscription = null;
+    }
+    
+    // 화면 전환
+    lobbyScreen.classList.add('hidden');
+    gameScreen.classList.remove('hidden');
+    
+    console.log('방장으로 화면 전환 완료:', {
+      lobbyHidden: lobbyScreen.classList.contains('hidden'),
+      gameVisible: !gameScreen.classList.contains('hidden')
+    });
+    
+    // 게임 초기화 이벤트 발생 (방장 모드)
+    const gameInitEvent = new CustomEvent('gameInitialize', { 
+      detail: { 
+        room, 
+        player: currentPlayer,
+        isHost: true,
+        waitingForGuest: true
+      } 
+    });
+    document.dispatchEvent(gameInitEvent);
+  }
+
+  /**
+   * 게임 시작 (게스트용 - 기존 함수)
    */
   function startGame(room) {
     // 구독 해제 (게임 화면으로 이동)
@@ -605,14 +650,19 @@ if (!window.lobbyJS.initialized) {
     lobbyScreen.classList.add('hidden');
     gameScreen.classList.remove('hidden');
     
-    console.log('화면 전환 완료:', {
+    console.log('게스트로 화면 전환 완료:', {
       lobbyHidden: lobbyScreen.classList.contains('hidden'),
       gameVisible: !gameScreen.classList.contains('hidden')
     });
     
-    // 게임 초기화 이벤트 발생
+    // 게임 초기화 이벤트 발생 (게스트 모드)
     const gameInitEvent = new CustomEvent('gameInitialize', { 
-      detail: { room, player: currentPlayer } 
+      detail: { 
+        room, 
+        player: currentPlayer,
+        isHost: false,
+        waitingForGuest: false
+      } 
     });
     document.dispatchEvent(gameInitEvent);
   }

@@ -33,44 +33,53 @@ if (!window.gameJS.initialized) {
   document.addEventListener('gameInitialize', (e) => {
     console.log('🎮 게임 초기화 이벤트 수신:', e.detail);
     
-    const { room, player } = e.detail;
+    const { room, player, isHost, waitingForGuest } = e.detail;
     currentGame = room;
     currentPlayer = player;
     boardSize = room.board_size || 3;
     
-    // ⚠️ 중요: 방장과 게스트 ID 검증
-    console.log('🔍 방 멤버십 검증:', {
+    // 상세 디버깅 정보 추가
+    console.log('📋 게임 초기화 상세 정보:', {
       '게임 ID': room.id,
       '현재 플레이어 ID': player.id,
       '현재 플레이어 이름': player.name,
       '방장 ID': room.host_id,
       '게스트 ID': room.guest_id,
       '현재 턴 ID': room.current_turn,
-      '방장과 게스트가 동일한가': room.host_id === room.guest_id,
       '내가 방장인가': room.host_id === player.id,
-      '내가 게스트인가': room.guest_id === player.id
+      '내가 게스트인가': room.guest_id === player.id,
+      '게스트 대기 중': waitingForGuest
     });
     
+    // 게스트 대기 상태 확인
+    if (waitingForGuest && !room.guest_id) {
+      console.log('🔄 게스트를 기다리는 중...');
+      if (statusText) {
+        statusText.textContent = '상대방을 기다리는 중...';
+        statusText.style.color = '#6b7280';
+      }
+    }
+    
     // ⚠️ 안전장치: 방장과 게스트가 동일하면 오류
-    if (room.host_id === room.guest_id) {
+    if (room.host_id === room.guest_id && room.guest_id) {
       console.error('🚨 치명적 오류: 방장과 게스트가 동일한 사람입니다!');
       alert('게임 설정 오류: 방장과 게스트가 동일한 사람으로 설정되었습니다. 게임을 다시 시작해주세요.');
       return;
     }
     
-    // ⚠️ 안전장치: 게스트가 없으면 경고
-    if (!room.guest_id) {
+    // ⚠️ 안전장치: 게스트가 없으면 경고 (방장 모드에서는 정상)
+    if (!room.guest_id && !waitingForGuest) {
       console.warn('⚠️ 게스트가 아직 입장하지 않았습니다.');
     }
     
     // 내가 X(방장)인지 O(게스트)인지 설정
-    const isHost = room.host_id === player.id;
-    playerSymbol = isHost ? 'X' : 'O';
+    const isHostPlayer = room.host_id === player.id;
+    playerSymbol = isHostPlayer ? 'X' : 'O';
     
     console.log('🎯 플레이어 심볼 설정:', {
       '내 ID': player.id,
       '방장 ID': room.host_id,
-      '내가 방장': isHost,
+      '내가 방장': isHostPlayer,
       '내 심볼': playerSymbol
     });
     
@@ -438,13 +447,20 @@ if (!window.gameJS.initialized) {
     
     // 게임 상태에 따른 UI 업데이트
     if (room.status === 'waiting') {
-      statusText.textContent = '상대방을 기다리는 중...';
+      // 🎯 방장이 게스트를 기다리는 상태
+      if (isHost) {
+        statusText.textContent = '상대방을 기다리는 중...';
+        statusText.style.color = '#f59e0b';
+        statusText.style.fontWeight = 'bold';
+      } else {
+        statusText.textContent = '게임 준비 중...';
+        statusText.style.color = '#6b7280';
+      }
       isMyTurn = false;
     } else if (room.status === 'playing') {
-      // 턴 표시 업데이트
+      // 게임 진행 중
       updateTurnDisplay(room);
       
-      // 상태 메시지 업데이트
       if (isMyTurn) {
         statusText.textContent = `당신의 턴입니다! (${playerSymbol})`;
         statusText.style.color = '#10b981';
