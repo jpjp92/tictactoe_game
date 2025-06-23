@@ -130,20 +130,31 @@ if (!window.lobbyJS.initialized) {
         .on('postgres_changes', 
           { event: '*', schema: 'public', table: 'rooms' },
           (payload) => {
-            console.log('실시간 방 목록 업데이트 수신:', payload);
+            console.log('📡 실시간 방 목록 업데이트 수신:', payload);
             
             try {
               if (payload.eventType === 'INSERT') {
-                console.log('새 방 추가:', payload.new);
+                console.log('➕ 새 방 추가:', payload.new);
                 addRoomToList(payload.new);
               } else if (payload.eventType === 'UPDATE') {
-                console.log('방 정보 업데이트:', payload.new);
+                console.log('🔄 방 정보 업데이트:', payload.new);
+                
+                // 데이터 유효성 검증
+                if (payload.new.host_id === payload.new.guest_id && payload.new.guest_id) {
+                  console.error('🚨 실시간 데이터 오류: 방장과 게스트가 동일합니다!', payload.new);
+                  return; // 잘못된 데이터는 처리하지 않음
+                }
+                
                 updateRoomInList(payload.new);
                 
                 // 내가 호스트인 방에 게스트가 참여한 경우
-                if (currentPlayer && payload.new.host_id === currentPlayer.id && 
-                    payload.new.guest_id && payload.new.status === 'playing') {
-                  console.log('✅ 내 방에 게스트가 참여하고 게임이 시작되었습니다!');
+                if (currentPlayer && 
+                    payload.new.host_id === currentPlayer.id && 
+                    payload.new.guest_id && 
+                    payload.new.guest_id !== currentPlayer.id && // 게스트가 나와 다른 사람인지 확인
+                    payload.new.status === 'playing') {
+                  
+                  console.log('🎉 내 방에 게스트가 참여하고 게임이 시작되었습니다!');
                   
                   // 게스트 정보 가져오기
                   supabase
@@ -151,25 +162,36 @@ if (!window.lobbyJS.initialized) {
                     .select('*')
                     .eq('id', payload.new.guest_id)
                     .single()
-                    .then(({ data: guest }) => {
+                    .then(({ data: guest, error: guestError }) => {
+                      if (guestError) {
+                        console.error('게스트 정보 조회 오류:', guestError);
+                        return;
+                      }
+                      
                       const updatedRoom = {
                         ...payload.new,
                         host: currentPlayer,
                         guest: guest
                       };
                       
-                      showNotification('상대방이 입장했습니다! 게임을 시작합니다.');
+                      console.log('🎮 호스트로 게임 시작:', {
+                        '방 ID': updatedRoom.id,
+                        '방장': currentPlayer.name,
+                        '게스트': guest.name
+                      });
+                      
+                      showNotification(`${guest.name}님이 입장했습니다! 게임을 시작합니다.`);
                       setTimeout(() => {
                         startGame(updatedRoom);
                       }, 1000);
                     });
                 }
               } else if (payload.eventType === 'DELETE') {
-                console.log('방 삭제:', payload.old);
+                console.log('🗑️ 방 삭제:', payload.old);
                 removeRoomFromList(payload.old.id);
               }
             } catch (handlerError) {
-              console.error('실시간 이벤트 처리 중 오류:', handlerError);
+              console.error('❌ 실시간 이벤트 처리 중 오류:', handlerError);
             }
           }
         )
@@ -307,14 +329,113 @@ if (!window.lobbyJS.initialized) {
   }
 
   /**
+   * 방 목록에 새 방 추가
+   */
+  function addRoomToList(room) {
+    // 이미 존재하는 방인지 확인
+    const existingRoom = document.querySelector(`.room-item[data-id="${room.id}"]`);
+    if (existingRoom) {
+      // 이미 존재하면 업데이트
+      updateRoomInList(room);
+      return;
+    }
+    
+    // 대기 중인 방만 표시
+    if (room.status !== 'waiting') {
+      return;
+    }
+    
+    const roomElement = document.createElement('div');
+    roomElement.className = 'room-item';
+    roomElement.setAttribute('data-id', room.id);
+    
+    // 내가 만든 방인지 확인
+    const isMyRoom = room.host_id === currentPlayer.id;
+    const canJoin = !isMyRoom && !room.guest_id;
+    
+    roomElement.innerHTML = `
+      <div class="room-info">
+        <h4>${room.name}</h4>
+        <span class="room-size">${room.board_size}x${room.board_size}</span>
+        <span class="host-name">방장: ${room.host?.name || '알 수 없음'}</span>
+        <span class="room-status ${room.guest_id ? 'in-progress' : 'waiting'}">
+          ${room.guest_id ? '진행 중' : '대기 중'}
+        </span>
+      </div>
+      <button class="join-button ${isMyRoom ? 'my-room' : ''}" ${!canJoin ? 'disabled' : ''}>
+        ${isMyRoom ? '내 방' : (room.guest_id ? '진행 중' : '참여')}
+      </button>
+    `;
+    
+    const joinButton = roomElement.querySelector('.join-button');
+    if (canJoin) {
+      joinButton.addEventListener('click', () => joinRoom(room.id));
+    }
+    
+    // 방 목록의 맨 앞에 추가 (최신 방이 위에 오도록)
+    if (roomList.firstChild && !roomList.firstChild.classList?.contains('loading')) {
+      roomList.insertBefore(roomElement, roomList.firstChild);
+    } else {
+      roomList.appendChild(roomElement);
+    }
+    
+    // 로딩 메시지가 있으면 제거
+    const loadingMessage = roomList.querySelector('.loading, .error');
+    if (loadingMessage) {
+      loadingMessage.remove();
+    }
+  }
+
+  /**
+   * 방 목록에서 특정 방 제거
+   */
+  function removeRoomFromList(roomId) {
+    const roomElement = document.querySelector(`.room-item[data-id="${roomId}"]`);
+    if (roomElement) {
+      roomElement.remove();
+      console.log('방 목록에서 제거됨:', roomId);
+    }
+    
+    // 방 목록이 비어있으면 메시지 표시
+    if (roomList.children.length === 0) {
+      roomList.innerHTML = '<p>현재 참여 가능한 방이 없습니다.</p>';
+    }
+  }
+
+  /**
    * 새 방 생성
    */
   async function createRoom() {
-    const roomName = document.getElementById('room-name').value.trim();
-    const boardSize = parseInt(document.getElementById('board-size').value);
+    // DOM 요소 안전하게 가져오기
+    const roomNameElement = document.getElementById('room-name');
+    const boardSizeElement = document.getElementById('board-size');
+    
+    // 요소가 존재하는지 확인
+    if (!roomNameElement) {
+      console.error('❌ room-name 요소를 찾을 수 없습니다.');
+      alert('방 이름 입력 필드를 찾을 수 없습니다.');
+      return;
+    }
+    
+    if (!boardSizeElement) {
+      console.error('❌ board-size 요소를 찾을 수 없습니다.');
+      // board-size 요소가 없으면 선택된 크기 사용
+      console.log('선택된 보드 크기 사용:', selectedBoardSize);
+    }
+    
+    const roomName = roomNameElement.value.trim();
+    const boardSize = boardSizeElement ? parseInt(boardSizeElement.value) : selectedBoardSize;
     
     if (!roomName) {
       alert('방 이름을 입력해주세요.');
+      roomNameElement.focus();
+      return;
+    }
+    
+    // 보드 크기 유효성 검사
+    if (![3, 5].includes(boardSize)) {
+      console.error('❌ 유효하지 않은 보드 크기:', boardSize);
+      alert('보드 크기는 3x3 또는 5x5만 가능합니다.');
       return;
     }
     
@@ -358,7 +479,7 @@ if (!window.lobbyJS.initialized) {
       addRoomToList(newRoom);
       
       // 입력 필드 초기화
-      document.getElementById('room-name').value = '';
+      roomNameElement.value = '';
       
       alert(`방 "${roomName}"이 생성되었습니다!`);
       
@@ -512,8 +633,22 @@ if (!window.lobbyJS.initialized) {
    */
   function setBoardSize(size) {
     selectedBoardSize = size;
-    size3x3CreateBtn.classList.toggle('active', size === 3);
-    size5x5CreateBtn.classList.toggle('active', size === 5);
+    
+    // 안전하게 요소 확인
+    if (size3x3CreateBtn) {
+      size3x3CreateBtn.classList.toggle('active', size === 3);
+    }
+    if (size5x5CreateBtn) {
+      size5x5CreateBtn.classList.toggle('active', size === 5);
+    }
+    
+    // board-size select 요소가 있으면 업데이트
+    const boardSizeElement = document.getElementById('board-size');
+    if (boardSizeElement) {
+      boardSizeElement.value = size;
+    }
+    
+    console.log('보드 크기 설정됨:', size);
   }
 
   // 페이지 언로드 시 구독 정리
@@ -528,28 +663,35 @@ if (!window.lobbyJS.initialized) {
   // 버튼에 이벤트 리스너 추가
   if (createRoomButton) {
     createRoomButton.addEventListener('click', createRoom);
+  } else {
+    console.warn('⚠️ create-room-button 요소를 찾을 수 없습니다.');
   }
-  
+
   if (refreshRoomsButton) {
     refreshRoomsButton.addEventListener('click', loadRooms);
+  } else {
+    console.warn('⚠️ refresh-rooms 요소를 찾을 수 없습니다.');
   }
-  
+
   if (size3x3CreateBtn) {
     size3x3CreateBtn.addEventListener('click', () => {
-      selectedBoardSize = 3;
-      size3x3CreateBtn.classList.add('active');
-      size5x5CreateBtn.classList.remove('active');
+      setBoardSize(3);
     });
+  } else {
+    console.warn('⚠️ size-3x3-create 요소를 찾을 수 없습니다.');
   }
-  
+
   if (size5x5CreateBtn) {
     size5x5CreateBtn.addEventListener('click', () => {
-      selectedBoardSize = 5;
-      size5x5CreateBtn.classList.add('active');
-      size3x3CreateBtn.classList.remove('active');
+      setBoardSize(5);
     });
+  } else {
+    console.warn('⚠️ size-5x5-create 요소를 찾을 수 없습니다.');
   }
-  
+
+  // 초기 보드 크기 설정
+  setBoardSize(3);
+
   // 이미 실행되었음을 표시
   window.lobbyJS.initialized = true;
   console.log('Lobby JS 초기화 완료');

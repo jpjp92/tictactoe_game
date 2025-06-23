@@ -70,35 +70,93 @@ input {
   max-height: 300px;
 }
 
+/* 방 목록 스타일 개선 */
 .room-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px;
-  background: rgba(255, 255, 255, 0.4);
-  border-radius: 10px;
+  padding: 15px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
   margin-bottom: 10px;
+  background-color: white;
+  transition: all 0.2s ease;
+}
+
+.room-item:hover {
+  border-color: #3b82f6;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
 }
 
 .room-info {
-  flex-grow: 1;
+  flex: 1;
 }
 
 .room-info h4 {
-  margin: 0 0 5px;
-  font-size: 1rem;
+  margin: 0 0 8px 0;
+  color: #1f2937;
+  font-size: 1.1em;
 }
 
-.room-size, .host-name {
-  font-size: 0.85rem;
-  color: #4b5563;
-  margin-right: 10px;
+.room-size, .host-name, .room-status {
+  display: inline-block;
+  margin-right: 12px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.85em;
+  font-weight: 500;
+}
+
+.room-size {
+  background-color: #ddd6fe;
+  color: #7c3aed;
+}
+
+.host-name {
+  background-color: #fef3c7;
+  color: #d97706;
+}
+
+.room-status.waiting {
+  background-color: #d1fae5;
+  color: #059669;
+}
+
+.room-status.in-progress {
+  background-color: #fee2e2;
+  color: #dc2626;
 }
 
 .join-button {
-  padding: 6px 12px;
-  font-size: 0.9rem;
-  margin-top: 0;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  background-color: #3b82f6;
+  color: white;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.join-button:hover:not(:disabled) {
+  background-color: #2563eb;
+}
+
+.join-button:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.join-button.my-room {
+  background-color: #10b981;
+}
+
+.join-button.my-room:hover {
+  background-color: #059669;
+}
+
+.join-button.in-progress {
+  background-color: #ef4444;
 }
 
 /* 게임 화면 플레이어 정보 */
@@ -161,5 +219,14 @@ input {
   
   .room-list {
     max-height: 200px;
+  }
+  
+  .room-item {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .room-info {
+    margin-bottom: 10px;
   }
 }
