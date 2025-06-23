@@ -210,47 +210,65 @@ if (!window.gameJS.initialized) {
     if (gameSubscription) {
       try {
         gameSubscription.unsubscribe();
+        console.log('이전 게임 구독이 해제되었습니다.');
       } catch (e) {
-        console.log('구독 해제 오류:', e);
+        console.log('게임 구독 해제 중 오류 (무시 가능):', e);
       }
       gameSubscription = null;
     }
     
-    // 새 구독 설정
+    if (!currentGame || !currentGame.id) {
+      console.error('❌ currentGame이 설정되지 않아 실시간 구독을 설정할 수 없습니다.');
+      return;
+    }
+    
     try {
-      console.log(`게임 ID:${currentGame.id}에 대한 실시간 구독 설정`);
+      console.log(`🔌 게임 ID: ${currentGame.id}에 대한 실시간 구독 설정`);
       
-      // 채널 ID 생성 (고유해야 함)
-      const channelId = `room-${currentGame.id}-${Date.now()}`;
+      // 고유한 채널 ID 생성
+      const channelId = `game-${currentGame.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       
       gameSubscription = supabase
         .channel(channelId)
         .on('postgres_changes', 
-          { event: 'UPDATE', schema: 'public', table: 'rooms', filter: `id=eq.${currentGame.id}` },
+          { 
+            event: 'UPDATE', 
+            schema: 'public', 
+            table: 'rooms', 
+            filter: `id=eq.${currentGame.id}` 
+          },
           (payload) => {
-            // 방 정보가 업데이트되면 게임 상태 업데이트
-            console.log('게임 상태 업데이트 수신:', payload.new);
-            updateGameState(payload.new);
+            console.log('🎮 게임 상태 업데이트 수신:', payload.new);
+            
+            try {
+              // 게임 상태 업데이트
+              updateGameState(payload.new);
+            } catch (updateError) {
+              console.error('❌ 게임 상태 업데이트 중 오류:', updateError);
+            }
           }
         )
         .subscribe((status) => {
-          console.log('게임 구독 상태:', status);
+          console.log('🎮 게임 구독 상태:', status);
           
           if (status === 'SUBSCRIBED') {
-            // 구독 성공, 초기 게임 상태 설정
+            console.log('✅ 게임 실시간 구독이 성공했습니다.');
+            // 구독 성공 시 초기 게임 상태 설정
             updateGameState(currentGame);
           } else if (status === 'TIMED_OUT' || status === 'CHANNEL_ERROR') {
-            // 구독 실패 시 재시도
-            console.error('게임 구독 실패, 재시도 중...', status);
+            console.error('❌ 게임 구독 실패, 재시도 중...', status);
             setTimeout(() => {
               setupRealtimeGame();
-            }, 2000);
+            }, 3000);
           }
         });
+      
     } catch (error) {
-      console.error('실시간 게임 구독 설정 오류:', error);
-      // 오류 발생 시 5초 후 재시도
+      console.error('❌ 실시간 게임 구독 설정 오류:', error);
+      
+      // 오류 발생 시 재시도
       setTimeout(() => {
+        console.log('🔄 게임 구독 재시도...');
         setupRealtimeGame();
       }, 5000);
     }

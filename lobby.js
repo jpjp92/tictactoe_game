@@ -108,65 +108,166 @@ if (!window.lobbyJS.initialized) {
    * 실시간 방 목록 구독 설정
    */
   function setupRealtimeSubscription() {
+    // 이전 구독이 있으면 해제
     if (roomSubscription) {
       try {
         roomSubscription.unsubscribe();
+        console.log('이전 구독이 해제되었습니다.');
       } catch (e) {
-        console.log('이전 구독 해제 오류:', e);
+        console.log('이전 구독 해제 중 오류 (무시 가능):', e);
       }
+      roomSubscription = null;
     }
     
     try {
-      // 새 구독 설정
       console.log('실시간 방 목록 구독 시작...');
+      
+      // 고유한 채널 ID 생성
+      const channelId = `rooms-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      
       roomSubscription = supabase
-        .channel('rooms-channel')
+        .channel(channelId)
         .on('postgres_changes', 
-          { event: '*', schema: 'public', table: 'rooms' },
+          { 
+            event: '*', 
+            schema: 'public', 
+            table: 'rooms'
+          },
           (payload) => {
-            console.log('실시간 방 목록 업데이트:', payload);
+            console.log('실시간 방 목록 업데이트 수신:', payload);
             
-            // payload.eventType에 따라 처리
-            if (payload.eventType === 'INSERT') {
-              // 새 방 추가
-              addRoomToList(payload.new);
-            } else if (payload.eventType === 'UPDATE') {
-              // 방 정보 업데이트 (상대방 입장 등)
-              updateRoomInList(payload.new);
-              
-              // 내가 참여중인 방인 경우 - 상대방이 참여했으면 알림
-              if (currentGame && currentGame.id === payload.new.id) {
-                if (payload.new.guest_id && !currentGame.guest_id) {
-                  console.log('상대방이 입장했습니다!', payload.new);
-                  alert('상대방이 입장했습니다.');
-                  
-                  // 게임 시작
+            try {
+              // payload.eventType에 따라 처리
+              if (payload.eventType === 'INSERT') {
+                console.log('새 방 추가:', payload.new);
+                addRoomToList(payload.new);
+              } else if (payload.eventType === 'UPDATE') {
+                console.log('방 정보 업데이트:', payload.new);
+                updateRoomInList(payload.new);
+                
+                // 내가 참여중인 방인 경우 - 상대방이 참여했으면 알림
+                if (currentGame && currentGame.id === payload.new.id) {
+                  if (payload.new.guest_id && !currentGame.guest_id) {
+                    console.log('상대방이 입장했습니다!', payload.new);
+                    currentGame = payload.new; // 게임 상태 업데이트
+                    
+                    // 게임 시작 알림
+                    showNotification('상대방이 입장했습니다! 게임을 시작합니다.');
+                    
+                    // 잠시 후 게임 화면으로 전환
+                    setTimeout(() => {
+                      startGame(payload.new);
+                    }, 1000);
+                  }
+                }
+                
+                // 내가 초대받은 방인 경우 - 게임 상태 변경
+                if (payload.new.guest_id === currentPlayer.id && payload.new.status === 'playing') {
+                  console.log('게임이 시작되었습니다.', payload.new);
+                  currentGame = payload.new; // 게임 상태 업데이트
                   startGame(payload.new);
                 }
+              } else if (payload.eventType === 'DELETE') {
+                console.log('방 삭제:', payload.old);
+                removeRoomFromList(payload.old.id);
               }
-              
-              // 내가 초대받은 방인 경우 - 게임 상태 변경
-              if (payload.new.guest_id === currentPlayer.id && payload.new.status === 'playing') {
-                console.log('게임이 시작되었습니다.', payload.new);
-                
-                // 게임 화면으로 전환
-                startGame(payload.new);
-              }
-            } else if (payload.eventType === 'DELETE') {
-              // 방 삭제
-              removeRoomFromList(payload.old.id);
+            } catch (handlerError) {
+              console.error('실시간 이벤트 처리 중 오류:', handlerError);
             }
           }
         )
         .subscribe((status) => {
           console.log('방 목록 구독 상태:', status);
-          if (status !== 'SUBSCRIBED') {
-            console.error('방 목록 구독 실패:', status);
+          
+          if (status === 'SUBSCRIBED') {
+            console.log('✅ 실시간 방 목록 구독이 성공했습니다.');
+          } else if (status === 'TIMED_OUT') {
+            console.warn('⚠️ 구독 시간 초과, 재시도 중...');
+            setTimeout(() => {
+              setupRealtimeSubscription();
+            }, 3000);
+          } else if (status === 'CHANNEL_ERROR') {
+            console.error('❌ 채널 오류 발생, 재시도 중...');
+            setTimeout(() => {
+              setupRealtimeSubscription();
+            }, 5000);
+          } else if (status === 'CLOSED') {
+            console.log('🔌 구독이 닫혔습니다.');
           }
         });
+      
     } catch (error) {
-      console.error('실시간 구독 설정 오류:', error);
+      console.error('❌ 실시간 구독 설정 오류:', error);
+      
+      // 오류 발생 시 재시도
+      setTimeout(() => {
+        console.log('🔄 실시간 구독 재시도...');
+        setupRealtimeSubscription();
+      }, 5000);
     }
+  }
+
+  /**
+   * 알림 표시 함수
+   */
+  function showNotification(message) {
+    // 기존 알림이 있으면 제거
+    const existingNotification = document.getElementById('game-notification');
+    if (existingNotification) {
+      existingNotification.remove();
+    }
+    
+    // 새 알림 생성
+    const notification = document.createElement('div');
+    notification.id = 'game-notification';
+    notification.style.cssText = `
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: #10b981;
+      color: white;
+      padding: 12px 24px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      z-index: 10000;
+      font-weight: bold;
+      animation: slideDown 0.3s ease-out;
+    `;
+    notification.textContent = message;
+    
+    // CSS 애니메이션 추가
+    if (!document.getElementById('notification-styles')) {
+      const style = document.createElement('style');
+      style.id = 'notification-styles';
+      style.textContent = `
+        @keyframes slideDown {
+          from {
+            opacity: 0;
+            transform: translateX(-50%) translateY(-20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+          }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+    
+    document.body.appendChild(notification);
+    
+    // 3초 후 자동 제거
+    setTimeout(() => {
+      if (notification) {
+        notification.style.animation = 'slideDown 0.3s ease-out reverse';
+        setTimeout(() => {
+          if (notification.parentNode) {
+            notification.remove();
+          }
+        }, 300);
+      }
+    }, 3000);
   }
 
   /**
