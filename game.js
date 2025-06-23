@@ -38,17 +38,30 @@ if (!window.gameJS.initialized) {
     currentPlayer = player;
     boardSize = room.board_size || 3;
     
-    // 상세 디버깅 정보 추가
-    console.log('📋 게임 초기화 상세 정보:', {
+    // ⚠️ 중요: 방장과 게스트 ID 검증
+    console.log('🔍 방 멤버십 검증:', {
       '게임 ID': room.id,
       '현재 플레이어 ID': player.id,
       '현재 플레이어 이름': player.name,
       '방장 ID': room.host_id,
       '게스트 ID': room.guest_id,
       '현재 턴 ID': room.current_turn,
+      '방장과 게스트가 동일한가': room.host_id === room.guest_id,
       '내가 방장인가': room.host_id === player.id,
       '내가 게스트인가': room.guest_id === player.id
     });
+    
+    // ⚠️ 안전장치: 방장과 게스트가 동일하면 오류
+    if (room.host_id === room.guest_id) {
+      console.error('🚨 치명적 오류: 방장과 게스트가 동일한 사람입니다!');
+      alert('게임 설정 오류: 방장과 게스트가 동일한 사람으로 설정되었습니다. 게임을 다시 시작해주세요.');
+      return;
+    }
+    
+    // ⚠️ 안전장치: 게스트가 없으면 경고
+    if (!room.guest_id) {
+      console.warn('⚠️ 게스트가 아직 입장하지 않았습니다.');
+    }
     
     // 내가 X(방장)인지 O(게스트)인지 설정
     const isHost = room.host_id === player.id;
@@ -528,7 +541,9 @@ if (!window.gameJS.initialized) {
       '내 심볼': playerSymbol,
       '내 ID': currentPlayer?.id,
       '현재 턴 ID': currentGame?.current_turn,
-      '게임 상태': currentGame?.status
+      '게임 상태': currentGame?.status,
+      '방장 ID': currentGame?.host_id,
+      '게스트 ID': currentGame?.guest_id
     });
     
     // 기본 유효성 검사
@@ -541,6 +556,20 @@ if (!window.gameJS.initialized) {
     if (!currentGame || !currentGame.id) {
       console.error('❌ 게임 정보가 없습니다.');
       showTempMessage('게임 정보 오류!');
+      return;
+    }
+    
+    // ⚠️ 중요: 게스트가 없으면 게임 진행 불가
+    if (!currentGame.guest_id) {
+      console.error('❌ 게스트가 없어서 게임을 진행할 수 없습니다.');
+      showTempMessage('상대방이 아직 입장하지 않았습니다!');
+      return;
+    }
+    
+    // ⚠️ 중요: 혼자 게임하는 상황 방지
+    if (currentGame.host_id === currentGame.guest_id) {
+      console.error('❌ 방장과 게스트가 동일한 사람입니다. 게임을 진행할 수 없습니다.');
+      showTempMessage('게임 설정 오류: 같은 사람이 방장과 게스트로 설정되었습니다!');
       return;
     }
     
@@ -585,13 +614,38 @@ if (!window.gameJS.initialized) {
       // 게임 상태 결정
       const newStatus = isWinner || isDraw ? 'finished' : 'playing';
       
-      // 다음 턴 설정 (상대방 ID 정확히 계산)
+      // ⚠️ 중요: 상대방 ID 정확히 계산
       const isHost = currentPlayer.id === currentGame.host_id;
-      const opponentId = isHost ? currentGame.guest_id : currentGame.host_id;
+      let opponentId;
+      
+      if (isHost) {
+        // 내가 방장이면 상대방은 게스트
+        opponentId = currentGame.guest_id;
+      } else {
+        // 내가 게스트면 상대방은 방장
+        opponentId = currentGame.host_id;
+      }
+      
+      // ⚠️ 안전장치: 상대방 ID가 내 ID와 같으면 오류
+      if (opponentId === currentPlayer.id) {
+        console.error('❌ 치명적 오류: 상대방 ID가 내 ID와 동일합니다!', {
+          '내 ID': currentPlayer.id,
+          '방장 ID': currentGame.host_id,
+          '게스트 ID': currentGame.guest_id,
+          '내가 방장': isHost,
+          '계산된 상대방 ID': opponentId
+        });
+        showTempMessage('게임 설정 오류가 발생했습니다. 다시 시작해주세요.');
+        return;
+      }
+      
       const nextTurn = isWinner || isDraw ? null : opponentId;
       
       console.log('🔄 업데이트 준비:', {
         '내가 방장': isHost,
+        '내 ID': currentPlayer.id,
+        '방장 ID': currentGame.host_id,
+        '게스트 ID': currentGame.guest_id,
         '상대방 ID': opponentId,
         '다음 턴': nextTurn,
         '새 상태': newStatus,
@@ -677,27 +731,53 @@ if (!window.gameJS.initialized) {
    * 임시 메시지 표시
    */
   function showTempMessage(message) {
+    // 기존 메시지가 있으면 제거
+    const existingMessage = document.getElementById('temp-message');
+    if (existingMessage) {
+      existingMessage.remove();
+    }
+    
     const tempDiv = document.createElement('div');
+    tempDiv.id = 'temp-message';
     tempDiv.style.cssText = `
       position: fixed;
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      background-color: rgba(0, 0, 0, 0.8);
+      background-color: rgba(239, 68, 68, 0.9);
       color: white;
       padding: 12px 24px;
       border-radius: 8px;
       z-index: 10000;
       font-weight: bold;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      animation: fadeInOut 2s ease-in-out;
     `;
     tempDiv.textContent = message;
+    
+    // CSS 애니메이션 추가
+    if (!document.getElementById('temp-message-styles')) {
+      const style = document.createElement('style');
+      style.id = 'temp-message-styles';
+      style.textContent = `
+        @keyframes fadeInOut {
+          0% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+          20% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+          80% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+          100% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+    
     document.body.appendChild(tempDiv);
     
+    // 2초 후 자동 제거
     setTimeout(() => {
       if (tempDiv.parentNode) {
         tempDiv.remove();
       }
-    }, 1500);
+    }, 2000);
   }
 
   /**
