@@ -235,7 +235,7 @@ if (!window.gameJS.initialized) {
   };
 
   /**
-   * 실시간 게임 구독 설정
+   * 실시간 게임 구독 설정 개선
    */
   const setupRealtimeGame = () => {
     // 이전 구독이 있으면 해제
@@ -264,19 +264,56 @@ if (!window.gameJS.initialized) {
         .channel(channelId)
         .on('postgres_changes', 
           { 
-            event: 'UPDATE', 
+            event: '*', // UPDATE뿐만 아니라 모든 변경사항 감지
             schema: 'public', 
             table: 'rooms', 
             filter: `id=eq.${currentGame.id}` 
           },
           (payload) => {
-            console.log('🎮 게임 상태 업데이트 수신:', payload.new);
+            console.log('🎮 실시간 게임 상태 변경 감지:', {
+              event: payload.eventType,
+              old: payload.old,
+              new: payload.new
+            });
             
             try {
-              // 게임 상태 업데이트
-              updateGameState(payload.new);
+              // 변경사항이 있을 때만 업데이트
+              if (payload.eventType === 'UPDATE' && payload.new) {
+                console.log('📡 실시간 업데이트 적용 중...');
+                
+                // 즉시 게임 상태 업데이트
+                updateGameState(payload.new);
+                
+                // 추가: 보드 상태나 턴이 변경된 경우 알림
+                if (payload.old && payload.new) {
+                  const oldBoardState = JSON.stringify(payload.old.board_state || []);
+                  const newBoardState = JSON.stringify(payload.new.board_state || []);
+                  const turnChanged = payload.old.current_turn !== payload.new.current_turn;
+                  
+                  if (oldBoardState !== newBoardState) {
+                    console.log('🎯 보드 상태가 실시간으로 변경되었습니다!');
+                  }
+                  
+                  if (turnChanged) {
+                    console.log('🔄 턴이 실시간으로 변경되었습니다!');
+                    
+                    // 내 턴이 되었을 때 알림
+                    if (payload.new.current_turn === currentPlayer.id) {
+                      console.log('✨ 내 턴이 되었습니다!');
+                      // 선택적: 소리나 진동 효과 추가 가능
+                      showTempMessage('당신의 턴입니다!', 'success');
+                    }
+                  }
+                }
+              } else if (payload.eventType === 'DELETE') {
+                console.log('🗑️ 게임이 삭제되었습니다.');
+                showTempMessage('게임이 종료되었습니다.');
+                setTimeout(() => {
+                  leaveGame();
+                }, 2000);
+              }
             } catch (updateError) {
-              console.error('❌ 게임 상태 업데이트 중 오류:', updateError);
+              console.error('❌ 실시간 게임 상태 업데이트 중 오류:', updateError);
             }
           }
         )
@@ -290,11 +327,21 @@ if (!window.gameJS.initialized) {
           } else if (status === 'TIMED_OUT' || status === 'CHANNEL_ERROR') {
             console.error('❌ 게임 구독 실패, 재시도 중...', status);
             setTimeout(() => {
+              console.log('🔄 게임 구독 재시도...');
               setupRealtimeGame();
             }, 3000);
+          } else if (status === 'CLOSED') {
+            console.warn('🔌 게임 구독이 닫혔습니다.');
+            // 게임 중이라면 재연결 시도
+            if (currentGame && currentGame.status === 'playing') {
+              console.log('🔄 게임 중 연결이 끊어져 재연결 시도...');
+              setTimeout(() => {
+                setupRealtimeGame();
+              }, 2000);
+            }
           }
         });
-      
+    
     } catch (error) {
       console.error('❌ 실시간 게임 구독 설정 오류:', error);
       
@@ -744,9 +791,9 @@ if (!window.gameJS.initialized) {
   }
 
   /**
-   * 임시 메시지 표시
+   * 임시 메시지 표시 개선
    */
-  function showTempMessage(message) {
+  function showTempMessage(message, type = 'error') {
     // 기존 메시지가 있으면 제거
     const existingMessage = document.getElementById('temp-message');
     if (existingMessage) {
@@ -755,13 +802,34 @@ if (!window.gameJS.initialized) {
     
     const tempDiv = document.createElement('div');
     tempDiv.id = 'temp-message';
+    
+    // 타입에 따른 색상 설정
+    let backgroundColor, textColor;
+    switch (type) {
+      case 'success':
+        backgroundColor = 'rgba(16, 185, 129, 0.9)'; // 초록색
+        textColor = 'white';
+        break;
+      case 'warning':
+        backgroundColor = 'rgba(245, 158, 11, 0.9)'; // 주황색
+        textColor = 'white';
+        break;
+      case 'info':
+        backgroundColor = 'rgba(59, 130, 246, 0.9)'; // 파란색
+        textColor = 'white';
+        break;
+      default: // 'error'
+        backgroundColor = 'rgba(239, 68, 68, 0.9)'; // 빨간색
+        textColor = 'white';
+    }
+    
     tempDiv.style.cssText = `
       position: fixed;
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      background-color: rgba(239, 68, 68, 0.9);
-      color: white;
+      background-color: ${backgroundColor};
+      color: ${textColor};
       padding: 12px 24px;
       border-radius: 8px;
       z-index: 10000;
@@ -1035,6 +1103,12 @@ if (!window.gameJS.initialized) {
     const roomIdText = document.createElement('p');
     roomIdText.textContent = `방 ID: ${currentGame?.id || 'N/A'}`;
     
+    // 구독 상태 표시
+    const subscriptionStatus = document.createElement('p');
+    subscriptionStatus.id = 'subscription-status';
+    subscriptionStatus.textContent = `구독 상태: ${gameSubscription ? '활성' : '비활성'}`;
+    subscriptionStatus.style.color = gameSubscription ? '#10b981' : '#ef4444';
+    
     const refreshButton = document.createElement('button');
     refreshButton.textContent = '게임 상태 새로고침';
     refreshButton.onclick = async () => {
@@ -1049,9 +1123,10 @@ if (!window.gameJS.initialized) {
         
         console.log('수동 새로고침 데이터:', data);
         updateGameState(data);
-        alert('게임 상태가 새로고침되었습니다.');
+        showTempMessage('게임 상태가 새로고침되었습니다.', 'success');
       } catch (err) {
         console.error('새로고침 오류:', err);
+        showTempMessage('새로고침 실패: ' + err.message);
       }
     };
     
@@ -1060,13 +1135,59 @@ if (!window.gameJS.initialized) {
     reconnectButton.style.marginLeft = '10px';
     reconnectButton.onclick = () => {
       setupRealtimeGame();
-      alert('실시간 구독이 재설정되었습니다.');
+      showTempMessage('실시간 구독이 재설정되었습니다.', 'info');
+      
+      // 구독 상태 업데이트
+      setTimeout(() => {
+        const statusElement = document.getElementById('subscription-status');
+        if (statusElement) {
+          statusElement.textContent = `구독 상태: ${gameSubscription ? '활성' : '비활성'}`;
+          statusElement.style.color = gameSubscription ? '#10b981' : '#ef4444';
+        }
+      }, 1000);
+    };
+    
+    // 실시간 테스트 버튼 추가
+    const testButton = document.createElement('button');
+    testButton.textContent = '연결 테스트';
+    testButton.style.marginLeft = '10px';
+    testButton.onclick = async () => {
+      try {
+        console.log('🔍 연결 테스트 시작...');
+        
+        // 1. Supabase 연결 테스트
+        const { data, error } = await supabase.from('rooms').select('count', { count: 'exact', head: true });
+        if (error) throw new Error('Supabase 연결 실패: ' + error.message);
+        
+        // 2. 구독 상태 확인
+        const subscriptionActive = !!gameSubscription;
+        
+        // 3. 현재 게임 데이터 확인
+        const gameDataExists = !!(currentGame && currentGame.id);
+        
+        console.log('📊 연결 테스트 결과:', {
+          'Supabase 연결': '✅ 성공',
+          '구독 상태': subscriptionActive ? '✅ 활성' : '❌ 비활성',
+          '게임 데이터': gameDataExists ? '✅ 존재' : '❌ 없음'
+        });
+        
+        if (subscriptionActive && gameDataExists) {
+          showTempMessage('모든 연결이 정상입니다!', 'success');
+        } else {
+          showTempMessage('일부 연결에 문제가 있습니다.', 'warning');
+        }
+      } catch (err) {
+        console.error('연결 테스트 오류:', err);
+        showTempMessage('연결 테스트 실패: ' + err.message);
+      }
     };
     
     debugContainer.appendChild(debugTitle);
     debugContainer.appendChild(roomIdText);
+    debugContainer.appendChild(subscriptionStatus);
     debugContainer.appendChild(refreshButton);
     debugContainer.appendChild(reconnectButton);
+    debugContainer.appendChild(testButton);
     
     // 게임 화면에 추가
     const gameScreenElement = document.getElementById('game-screen');
@@ -1080,6 +1201,74 @@ if (!window.gameJS.initialized) {
     setTimeout(addDebugTools, 1500);
   });
   
+  /**
+   * 연결 상태 모니터링
+   */
+  function monitorConnection() {
+    // 주기적으로 연결 상태 확인 (30초마다)
+    const connectionCheckInterval = setInterval(() => {
+      if (!currentGame || currentGame.status !== 'playing') {
+        clearInterval(connectionCheckInterval);
+        return;
+      }
+      
+      // Supabase 연결 상태 확인
+      if (!supabase) {
+        console.warn('⚠️ Supabase 연결이 끊어졌습니다.');
+        showTempMessage('연결이 불안정합니다. 재연결을 시도합니다.', 'warning');
+        return;
+      }
+      
+      // 게임 구독 상태 확인
+      if (!gameSubscription) {
+        console.warn('⚠️ 게임 구독이 없습니다. 재설정합니다.');
+        setupRealtimeGame();
+      }
+      
+      console.log('🔍 연결 상태 정상');
+    }, 30000); // 30초마다 확인
+    
+    // 게임 종료 시 모니터링 중단
+    return connectionCheckInterval;
+  }
+
+  // 게임 초기화 시 연결 모니터링 시작
+  document.addEventListener('gameInitialize', () => {
+    setTimeout(() => {
+      if (currentGame && currentGame.status === 'playing') {
+        monitorConnection();
+      }
+    }, 5000);
+  });
+
+  /**
+   * 페이지 가시성 변경 감지 (탭 전환 등)
+   */
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && currentGame && currentGame.status === 'playing') {
+      console.log('👁️ 페이지가 다시 활성화됨, 연결 상태 확인...');
+      
+      // 페이지가 다시 활성화되면 게임 상태 새로고침
+      setTimeout(async () => {
+        try {
+          const { data, error } = await supabase
+            .from('rooms')
+            .select('*')
+            .eq('id', currentGame.id)
+            .single();
+          
+          if (error) throw error;
+          
+          console.log('🔄 페이지 활성화 후 게임 상태 동기화');
+          updateGameState(data);
+        } catch (err) {
+          console.error('페이지 활성화 후 동기화 오류:', err);
+          setupRealtimeGame(); // 실패 시 구독 재설정
+        }
+      }, 1000);
+    }
+  });
+
   // 이미 실행되었음을 표시
   window.gameJS.initialized = true;
   console.log('Game JS 초기화 완료');
