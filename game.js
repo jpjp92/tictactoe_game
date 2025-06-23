@@ -1260,9 +1260,9 @@ if (!window.gameJS.initialized) {
   };
 
   /**
-   * 셀 클릭 처리 (캐시 기반 - 초고속)
+   * 셀 클릭 처리 (캐시 기반 - 초고속) - 통합 버전
    */
-  let clickTimeout = null;
+  let clickTimeout = null; // 한 번만 선언
 
   async function handleCellClick(index) {
     // 중복 클릭 방지
@@ -1273,7 +1273,7 @@ if (!window.gameJS.initialized) {
     
     clickTimeout = setTimeout(() => {
       clickTimeout = null;
-    }, 200); // 0.2초로 단축
+    }, 200);
     
     const startTime = performance.now();
     
@@ -1533,6 +1533,25 @@ if (!window.gameJS.initialized) {
           console.log('🏁 게임 종료 이벤트 수신:', payload.payload);
           handleGameEnd(payload.payload);
         })
+        // 🔄 재대결 이벤트 처리
+        .on('broadcast', { event: 'rematch_request' }, (payload) => {
+          if (payload.payload.requester_id !== currentPlayer.id) {
+            showTempMessage('상대방이 재대결을 요청했습니다!', 'info');
+            showRematchAcceptUI();
+          }
+        })
+        .on('broadcast', { event: 'rematch_accepted' }, (payload) => {
+          if (payload.payload.accepter_id !== currentPlayer.id) {
+            showTempMessage('상대방이 재대결을 수락했습니다!', 'success');
+            startRematch();
+          }
+        })
+        .on('broadcast', { event: 'rematch_declined' }, (payload) => {
+          if (payload.payload.decliner_id !== currentPlayer.id) {
+            showTempMessage('상대방이 재대결을 거절했습니다.', 'warning');
+            showRematchOptions();
+          }
+        })
         // 📊 DB 변경사항 감지 (게임 상태 변경용 - 게스트 입장 등)
         .on('postgres_changes', 
           { 
@@ -1615,6 +1634,8 @@ if (!window.gameJS.initialized) {
   function handleGameEnd(endData) {
     const { winner_id, is_draw, final_board, moves_history, game_duration } = endData;
 
+    console.log('🏁 게임 종료 처리:', endData);
+    
     // 최종 상태 동기화
     cells = [...final_board];
     gameCache.board_state = [...final_board];
@@ -1637,8 +1658,12 @@ if (!window.gameJS.initialized) {
     currentGame.winner_id = winner_id;
     isMyTurn = false;
 
-    // 리매치 UI 표시
-    showRematchOptions();
+    console.log(`🕒 게임 소요 시간: ${(game_duration / 1000).toFixed(1)}초`);
+
+    // 2초 후 리매치 UI 표시
+    setTimeout(() => {
+      showRematchOptions();
+    }, 2000);
   }
 
   /**
@@ -1651,18 +1676,45 @@ if (!window.gameJS.initialized) {
 
     const container = document.createElement('div');
     container.id = 'rematch-options';
-    container.style.textAlign = 'center';
-    container.style.margin = '20px 0';
+    container.style.cssText = `
+      display: flex;
+      justify-content: center;
+      gap: 15px;
+      margin: 20px 0;
+      padding: 20px;
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    `;
 
     // 리매치 버튼
     const rematchBtn = document.createElement('button');
     rematchBtn.textContent = '🔄 재대결 요청';
-    rematchBtn.style.margin = '0 10px';
+    rematchBtn.style.cssText = `
+      background: linear-gradient(135deg, #10b981, #059669);
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.2s;
+    `;
     rematchBtn.onclick = requestRematch;
 
     // 로비로 버튼
     const lobbyBtn = document.createElement('button');
     lobbyBtn.textContent = '🏠 로비로';
+    lobbyBtn.style.cssText = `
+      background: linear-gradient(135deg, #6b7280, #4b5563);
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.2s;
+    `;
     lobbyBtn.onclick = leaveGame;
 
     container.appendChild(rematchBtn);
@@ -1699,7 +1751,9 @@ if (!window.gameJS.initialized) {
    */
   function showRematchWaiting() {
     const container = document.getElementById('rematch-options');
-    if (container) container.innerHTML = '<span>상대방 응답 대기 중...</span>';
+    if (container) {
+      container.innerHTML = '<span style="color: #6b7280; font-weight: bold;">상대방 응답 대기 중...</span>';
+    }
   }
 
   /**
@@ -1708,15 +1762,34 @@ if (!window.gameJS.initialized) {
   function showRematchAcceptUI() {
     const container = document.getElementById('rematch-options');
     if (container) {
-      container.innerHTML = '';
-      const acceptBtn = document.createElement('button');
-      acceptBtn.textContent = '✅ 수락';
-      acceptBtn.onclick = acceptRematch;
-      const declineBtn = document.createElement('button');
-      declineBtn.textContent = '❌ 거절';
-      declineBtn.onclick = declineRematch;
-      container.appendChild(acceptBtn);
-      container.appendChild(declineBtn);
+      container.innerHTML = `
+        <div style="text-align: center;">
+          <p style="margin: 0 0 15px 0; color: #10b981; font-weight: bold;">상대방이 재대결을 요청했습니다!</p>
+          <div style="display: flex; justify-content: center; gap: 10px;">
+            <button id="accept-rematch" style="
+              background: #10b981;
+              color: white;
+              border: none;
+              padding: 12px 24px;
+              border-radius: 8px;
+              font-weight: bold;
+              cursor: pointer;
+            ">✅ 수락</button>
+            <button id="decline-rematch" style="
+              background: #ef4444;
+              color: white;
+              border: none;
+              padding: 12px 24px;
+              border-radius: 8px;
+              font-weight: bold;
+              cursor: pointer;
+            ">❌ 거절</button>
+          </div>
+        </div>
+      `;
+      
+      document.getElementById('accept-rematch').onclick = acceptRematch;
+      document.getElementById('decline-rematch').onclick = declineRematch;
     }
   }
 
@@ -1761,47 +1834,41 @@ if (!window.gameJS.initialized) {
    * 리매치 시작
    */
   function startRematch() {
+    console.log('🆕 새 게임 시작 (재대결)');
+    
+    // UI 정리
+    const rematchContainer = document.getElementById('rematch-options');
+    if (rematchContainer) rematchContainer.remove();
+    
     // 보드/상태 초기화
     cells = Array(boardSize * boardSize).fill('');
     isMyTurn = currentGame.host_id === currentPlayer.id;
+    
+    // 로컬 게임 상태 업데이트
     currentGame.status = 'playing';
     currentGame.current_turn = currentGame.host_id;
     currentGame.winner_id = null;
     currentGame.board_state = [...cells];
+    
+    // 캐시 초기화
     gameCache = {
       board_state: [...cells],
       moves_history: [],
       start_time: Date.now(),
       last_move_time: Date.now()
     };
+    
+    // UI 업데이트
     drawBoard();
-    statusText.textContent = isMyTurn ? '새 게임 시작! 당신의 턴입니다!' : '새 게임 시작! 상대방의 턴입니다...';
+    statusText.textContent = isMyTurn ? 
+      `새 게임 시작! 당신의 턴입니다! (${playerSymbol})` : 
+      '새 게임 시작! 상대방의 턴입니다...';
     statusText.style.color = isMyTurn ? '#10b981' : '#6b7280';
-    const container = document.getElementById('rematch-options');
-    if (container) container.remove();
-  }
-
-  // --- 실시간 구독에 리매치 이벤트 추가 ---
-  if (gameSubscription) {
-    gameSubscription
-      .on('broadcast', { event: 'rematch_request' }, (payload) => {
-        if (payload.payload.requester_id !== currentPlayer.id) {
-          showTempMessage('상대방이 재대결을 요청했습니다!', 'info');
-          showRematchAcceptUI();
-        }
-      })
-      .on('broadcast', { event: 'rematch_accepted' }, (payload) => {
-        if (payload.payload.accepter_id !== currentPlayer.id) {
-          showTempMessage('상대방이 재대결을 수락했습니다!', 'success');
-          startRematch();
-        }
-      })
-      .on('broadcast', { event: 'rematch_declined' }, (payload) => {
-        if (payload.payload.decliner_id !== currentPlayer.id) {
-          showTempMessage('상대방이 재대결을 거절했습니다.', 'warning');
-          showRematchOptions();
-        }
-      });
+    
+    // 턴 표시 업데이트
+    updateTurnDisplay(currentGame);
+    
+    showTempMessage('새 게임이 시작되었습니다! 🎮', 'success');
   }
 
   // 초기화 완료 표시
