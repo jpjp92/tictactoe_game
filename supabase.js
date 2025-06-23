@@ -153,6 +153,42 @@ if (!window.supabaseUtils.initialized) {
             resolve(false);
           });
       });
+    },
+    
+    // 디버깅용: 방 정보 확인
+    debugRoom: async (roomId) => {
+      if (!window.supabaseClient) {
+        console.error('Supabase 클라이언트가 초기화되지 않았습니다.');
+        return;
+      }
+      
+      try {
+        const { data: room, error } = await window.supabaseClient
+          .from('rooms')
+          .select('*')
+          .eq('id', roomId)
+          .single();
+        
+        if (error) throw error;
+        
+        console.log('🔍 방 정보 디버깅:', {
+          '방 ID': room.id,
+          '방 이름': room.name,
+          '방장 ID': room.host_id,
+          '게스트 ID': room.guest_id,
+          '상태': room.status,
+          '현재 턴': room.current_turn,
+          '보드 상태': room.board_state,
+          '방장과 게스트 동일': room.host_id === room.guest_id,
+          '생성 시간': room.created_at,
+          '수정 시간': room.updated_at
+        });
+        
+        return room;
+      } catch (error) {
+        console.error('방 정보 조회 오류:', error);
+        return null;
+      }
     }
   };
 }

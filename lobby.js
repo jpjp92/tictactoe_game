@@ -310,58 +310,61 @@ if (!window.lobbyJS.initialized) {
    * 새 방 생성
    */
   async function createRoom() {
+    const roomName = document.getElementById('room-name').value.trim();
+    const boardSize = parseInt(document.getElementById('board-size').value);
+    
+    if (!roomName) {
+      alert('방 이름을 입력해주세요.');
+      return;
+    }
+    
     try {
-      const roomName = roomNameInput.value.trim();
+      console.log('🏠 방 생성 시도:', {
+        '방 이름': roomName,
+        '보드 크기': boardSize,
+        '방장 ID': currentPlayer.id,
+        '방장 이름': currentPlayer.name
+      });
       
-      if (!roomName) {
-        alert('방 이름을 입력해주세요.');
-        return;
-      }
-      
-      if (!currentPlayer || !currentPlayer.id) {
-        alert('로그인이 필요합니다.');
-        return;
-      }
-      
-      createRoomButton.disabled = true;
-      console.log('방 생성 시도:', { roomName, boardSize: selectedBoardSize, playerId: currentPlayer.id });
-      
-      // 빈 보드 상태 생성 (배열 형식으로)
-      const emptyBoardState = Array(selectedBoardSize * selectedBoardSize).fill('');
-      
-      const newRoom = {
+      const roomData = {
         name: roomName,
-        board_size: selectedBoardSize,
         host_id: currentPlayer.id,
-        current_turn: currentPlayer.id,
+        guest_id: null, // 명시적으로 null 설정
+        board_size: boardSize,
         status: 'waiting',
-        board_state: emptyBoardState,
-        created_at: new Date().toISOString()
+        current_turn: null, // 게임 시작 전에는 null
+        board_state: Array(boardSize * boardSize).fill(''),
+        winner_id: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       };
       
-      console.log('Supabase에 전송할 데이터:', newRoom);
+      console.log('📝 방 생성 데이터:', roomData);
       
-      const { data: room, error } = await supabase
+      const { data: newRoom, error } = await supabase
         .from('rooms')
-        .insert(newRoom)
-        .select()
+        .insert([roomData])
+        .select('*')
         .single();
       
       if (error) {
-        console.error('방 생성 중 Supabase 오류:', error);
+        console.error('방 생성 오류:', error);
         throw error;
       }
       
-      console.log('방 생성 성공:', room);
+      console.log('✅ 방 생성 성공:', newRoom);
       
-      // 방 생성 성공 후 입장
-      joinRoom(room.id);
+      // 방 목록에 추가
+      addRoomToList(newRoom);
+      
+      // 입력 필드 초기화
+      document.getElementById('room-name').value = '';
+      
+      alert(`방 "${roomName}"이 생성되었습니다!`);
       
     } catch (error) {
-      console.error('방 생성 오류:', error);
-      alert('방 생성에 실패했습니다: ' + (error.message || '알 수 없는 오류'));
-    } finally {
-      createRoomButton.disabled = false;
+      console.error('❌ 방 생성 오류:', error);
+      alert('방 생성에 실패했습니다: ' + error.message);
     }
   }
 
@@ -370,53 +373,111 @@ if (!window.lobbyJS.initialized) {
    */
   async function joinRoom(roomId) {
     try {
-      console.log('방 참여 시도:', roomId);
+      console.log('🔗 방 참여 시도:', {
+        '방 ID': roomId,
+        '현재 플레이어 ID': currentPlayer.id,
+        '현재 플레이어 이름': currentPlayer.name
+      });
       
       // 방 정보 먼저 가져오기
       const { data: room, error: roomError } = await supabase
         .from('rooms')
-        .select('*, host:host_id(name)')
+        .select('*')
         .eq('id', roomId)
         .single();
       
-      if (roomError) throw roomError;
+      if (roomError) {
+        console.error('방 정보 조회 오류:', roomError);
+        throw roomError;
+      }
+      
+      console.log('📋 방 정보 확인:', {
+        '방 ID': room.id,
+        '방 이름': room.name,
+        '방장 ID': room.host_id,
+        '게스트 ID': room.guest_id,
+        '상태': room.status,
+        '현재 플레이어 ID': currentPlayer.id
+      });
+      
+      // 내가 이미 방장인지 확인
+      if (room.host_id === currentPlayer.id) {
+        console.error('❌ 이미 내가 방장인 방에는 게스트로 참여할 수 없습니다.');
+        alert('자신이 만든 방에는 참여할 수 없습니다.');
+        return;
+      }
       
       // 이미 게스트가 있는지 확인
-      if (room.guest_id) {
+      if (room.guest_id && room.guest_id !== currentPlayer.id) {
+        console.error('❌ 이미 다른 플레이어가 참여한 방입니다.');
         alert('이미 다른 플레이어가 참여한 방입니다.');
         return;
       }
       
+      // 게임이 이미 진행 중인지 확인
+      if (room.status === 'playing' && room.guest_id && room.guest_id !== currentPlayer.id) {
+        console.error('❌ 이미 게임이 진행 중인 방입니다.');
+        alert('이미 게임이 진행 중인 방입니다.');
+        return;
+      }
+      
+      console.log('✅ 방 참여 가능 확인 완료');
+      
       // 방에 참여 (게스트로 등록하고 동시에 게임 시작)
-      const { error } = await supabase
-        .from('rooms')
-        .update({
-          guest_id: currentPlayer.id,
-          status: 'playing',
-          current_turn: room.host_id, // 방장이 항상 첫 턴
-          board_state: Array(room.board_size * room.board_size).fill('')
-        })
-        .eq('id', roomId);
-      
-      if (error) throw error;
-      
-      console.log('✅ 방 참여 및 게임 시작 성공');
-      
-      // 게임 화면으로 전환
-      const updatedRoom = {
-        ...room,
+      const updateData = {
         guest_id: currentPlayer.id,
         status: 'playing',
-        current_turn: room.host_id,
+        current_turn: room.host_id, // 방장이 항상 첫 턴
         board_state: Array(room.board_size * room.board_size).fill(''),
-        guest: currentPlayer // 게스트 정보 추가
+        updated_at: new Date().toISOString()
       };
       
-      startGame(updatedRoom);
+      console.log('🔄 방 업데이트 데이터:', updateData);
+      
+      const { data: updatedRoom, error } = await supabase
+        .from('rooms')
+        .update(updateData)
+        .eq('id', roomId)
+        .eq('host_id', room.host_id) // 방장이 바뀌지 않았는지 확인
+        .select('*')
+        .single();
+      
+      if (error) {
+        console.error('방 업데이트 오류:', error);
+        throw error;
+      }
+      
+      console.log('✅ 방 참여 및 게임 시작 성공:', updatedRoom);
+      
+      // 방장과 게스트 정보 가져오기
+      const { data: hostPlayer } = await supabase
+        .from('players')
+        .select('*')
+        .eq('id', updatedRoom.host_id)
+        .single();
+      
+      // 게임 화면으로 전환
+      const gameRoom = {
+        ...updatedRoom,
+        host: hostPlayer,
+        guest: currentPlayer
+      };
+      
+      console.log('🎮 게임 시작 데이터:', {
+        '방 ID': gameRoom.id,
+        '방장 ID': gameRoom.host_id,
+        '방장 이름': gameRoom.host?.name,
+        '게스트 ID': gameRoom.guest_id,
+        '게스트 이름': gameRoom.guest?.name,
+        '현재 턴': gameRoom.current_turn,
+        '상태': gameRoom.status
+      });
+      
+      startGame(gameRoom);
       
     } catch (error) {
-      console.error('방 참여 오류:', error);
-      alert('방 참여에 실패했습니다.');
+      console.error('❌ 방 참여 오류:', error);
+      alert('방 참여에 실패했습니다: ' + error.message);
     }
   }
 
