@@ -415,6 +415,16 @@ if (!window.gameJS.initialized) {
    * 게임 상태 업데이트
    */
   const updateGameState = (room) => {
+    // 🚀 성능 개선: 이미 처리된 상태면 스킵
+    const currentBoardStr = JSON.stringify(cells);
+    const newBoardStr = JSON.stringify(room.board_state || []);
+    
+    if (currentBoardStr === newBoardStr && 
+        room.current_turn === currentGame?.current_turn) {
+      console.log('🔄 중복 업데이트 스킵 - 성능 개선됨');
+      return;
+    }
+    
     console.log('🎮 게임 상태 업데이트:', room);
     
     // ID 검증 및 디버깅 추가
@@ -593,7 +603,19 @@ if (!window.gameJS.initialized) {
   /**
    * 셀 클릭 처리 개선
    */
+  let clickTimeout = null;
+
   async function handleCellClick(index) {
+    // 중복 클릭 방지
+    if (clickTimeout) {
+      console.log('⏳ 이미 처리 중입니다...');
+      return;
+    }
+    
+    clickTimeout = setTimeout(() => {
+      clickTimeout = null;
+    }, 500); // 0.5초 동안 중복 클릭 방지
+    
     const startTime = performance.now();
     
     try {
