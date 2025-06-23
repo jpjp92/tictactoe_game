@@ -369,63 +369,57 @@ if (!window.lobbyJS.initialized) {
   }
 
   /**
-   * 방 참여
+   * 방 참여 처리
    */
   async function joinRoom(roomId) {
     try {
-      // Supabase가 준비되지 않은 경우 처리
-      if (!supabase) {
-        alert('서버 연결에 실패했습니다. 나중에 다시 시도해주세요.');
-        return;
-      }
+      console.log('방 참여 시도:', roomId);
       
-      // 방 정보 가져오기
-      const { data: room, error: fetchError } = await supabase
+      // 방 정보 먼저 가져오기
+      const { data: room, error: roomError } = await supabase
         .from('rooms')
-        .select(`
-          id,
-          name,
-          board_size,
-          host_id,
-          guest_id,
-          status,
-          host:host_id(name)
-        `)
+        .select('*, host:host_id(name)')
         .eq('id', roomId)
         .single();
       
-      if (fetchError) throw fetchError;
+      if (roomError) throw roomError;
       
-      // 방 상태 확인
-      if (room.status !== 'waiting') {
-        alert('이 방은 더 이상 참여할 수 없습니다.');
+      // 이미 게스트가 있는지 확인
+      if (room.guest_id) {
+        alert('이미 다른 플레이어가 참여한 방입니다.');
         return;
       }
       
-      // 내가 방장인 경우
-      if (room.host_id === currentPlayer.id) {
-        startGame(room);
-        return;
-      }
-      
-      // 게스트로 참여
-      const { data, error } = await supabase
+      // 방에 참여 (게스트로 등록하고 동시에 게임 시작)
+      const { error } = await supabase
         .from('rooms')
-        .update({ 
-          guest_id: currentPlayer.id, 
-          status: 'playing' 
+        .update({
+          guest_id: currentPlayer.id,
+          status: 'playing',
+          current_turn: room.host_id, // 방장이 항상 첫 턴
+          board_state: Array(room.board_size * room.board_size).fill('')
         })
-        .eq('id', roomId)
-        .select()
-        .single();
+        .eq('id', roomId);
       
       if (error) throw error;
       
-      // 게임 시작
-      startGame(data);
+      console.log('✅ 방 참여 및 게임 시작 성공');
+      
+      // 게임 화면으로 전환
+      const updatedRoom = {
+        ...room,
+        guest_id: currentPlayer.id,
+        status: 'playing',
+        current_turn: room.host_id,
+        board_state: Array(room.board_size * room.board_size).fill(''),
+        guest: currentPlayer // 게스트 정보 추가
+      };
+      
+      startGame(updatedRoom);
+      
     } catch (error) {
       console.error('방 참여 오류:', error);
-      alert('방 참여에 실패했습니다. 다시 시도해주세요.');
+      alert('방 참여에 실패했습니다.');
     }
   }
 

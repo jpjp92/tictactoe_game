@@ -107,6 +107,27 @@ input {
   justify-content: center;
   gap: 30px;
   margin-bottom: 15px;
+  padding: 10px;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  border: 2px solid transparent;
+}
+
+.player-info.active {
+  background-color: rgba(16, 185, 129, 0.1);
+  border-color: #10b981;
+  transform: scale(1.02);
+}
+
+.player-info.my-info {
+  background-color: rgba(59, 130, 246, 0.1);
+  border-color: #3b82f6;
+}
+
+.player-info.my-info.active {
+  background-color: rgba(16, 185, 129, 0.2);
+  border-color: #10b981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.3);
 }
 
 .player {
@@ -126,6 +147,22 @@ input {
 .player.winner {
   background: linear-gradient(to right, #fef9c3, #fcd34d);
   box-shadow: 0 0 20px rgba(252, 211, 77, 0.5);
+}
+
+/* 상태 텍스트 애니메이션 */
+#status {
+  transition: all 0.3s ease;
+}
+
+/* 셀 호버 효과 개선 */
+.cell:hover {
+  transform: scale(1.05);
+  background-color: rgba(255, 255, 255, 0.95) !important;
+}
+
+.cell.disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 /* 반응형 스타일 */
