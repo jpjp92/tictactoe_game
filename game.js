@@ -1646,3 +1646,5 @@ if (!window.gameJS.initialized) {
   window.gameJS.initialized = true;
   console.log('Game JS 초기화 완료');
 }
+
+// 테스트 
