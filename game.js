@@ -1454,7 +1454,7 @@ if (!window.gameJS.initialized) {
           current_turn: null
         })
         .eq('id', currentGame.id);
-      
+    
       if (roomError) {
         console.error('방 상태 업데이트 오류:', roomError);
         throw roomError;
@@ -1477,13 +1477,14 @@ if (!window.gameJS.initialized) {
       const { error: historyError } = await supabase
         .from('game_history')
         .insert([gameHistoryData]);
-      
+    
       if (historyError) {
         console.warn('게임 히스토리 저장 실패 (게임은 정상 종료):', historyError);
         // 히스토리 저장 실패는 무시 (게임 자체는 성공)
       }
       
       console.log('✅ 게임 결과 DB 저장 완료');
+    
     } catch (error) {
       console.error('❌ 게임 결과 저장 실패:', error);
       throw error;
@@ -1789,7 +1790,7 @@ if (!window.gameJS.initialized) {
             console.error('❌ 게임 결과 저장 실패:', error);
             // 저장 실패해도 게임은 정상 종료됨
           });
-        
+      
         // 게임 종료 이벤트 전송
         if (gameSubscription) {
           await gameSubscription.send({
@@ -1846,7 +1847,7 @@ if (!window.gameJS.initialized) {
           current_turn: null
         })
         .eq('id', currentGame.id);
-      
+    
       if (roomError) {
         console.error('방 상태 업데이트 오류:', roomError);
         throw roomError;
@@ -1869,13 +1870,14 @@ if (!window.gameJS.initialized) {
       const { error: historyError } = await supabase
         .from('game_history')
         .insert([gameHistoryData]);
-      
+    
       if (historyError) {
         console.warn('게임 히스토리 저장 실패 (게임은 정상 종료):', historyError);
         // 히스토리 저장 실패는 무시 (게임 자체는 성공)
       }
       
       console.log('✅ 게임 결과 DB 저장 완료');
+    
     } catch (error) {
       console.error('❌ 게임 결과 저장 실패:', error);
       throw error;
@@ -2032,15 +2034,3 @@ if (!window.gameJS.initialized) {
     
     console.log(`🕒 게임 소요 시간: ${(game_duration / 1000).toFixed(1)}초`);
   }
-
-  /**
-   * 게임 캐시 상태
-   */
-  let gameCache = {
-    board_state: [],
-    moves_history: [],
-    start_time: null,
-    last_move_time: null
-  };
-
-  /**
