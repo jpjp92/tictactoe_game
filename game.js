@@ -1610,13 +1610,11 @@ if (!window.gameJS.initialized) {
   }
 
   /**
-   * 게임 종료 처리
+   * 게임 종료 처리 (리매치 UI 추가)
    */
   function handleGameEnd(endData) {
     const { winner_id, is_draw, final_board, moves_history, game_duration } = endData;
-    
-    console.log('🏁 게임 종료 처리:', endData);
-    
+
     // 최종 상태 동기화
     cells = [...final_board];
     gameCache.board_state = [...final_board];
@@ -1638,8 +1636,172 @@ if (!window.gameJS.initialized) {
     currentGame.status = 'finished';
     currentGame.winner_id = winner_id;
     isMyTurn = false;
-    
-    console.log(`🕒 게임 소요 시간: ${(game_duration / 1000).toFixed(1)}초`);
+
+    // 리매치 UI 표시
+    showRematchOptions();
+  }
+
+  /**
+   * 리매치 옵션 UI 표시
+   */
+  function showRematchOptions() {
+    // 기존 옵션 제거
+    const old = document.getElementById('rematch-options');
+    if (old) old.remove();
+
+    const container = document.createElement('div');
+    container.id = 'rematch-options';
+    container.style.textAlign = 'center';
+    container.style.margin = '20px 0';
+
+    // 리매치 버튼
+    const rematchBtn = document.createElement('button');
+    rematchBtn.textContent = '🔄 재대결 요청';
+    rematchBtn.style.margin = '0 10px';
+    rematchBtn.onclick = requestRematch;
+
+    // 로비로 버튼
+    const lobbyBtn = document.createElement('button');
+    lobbyBtn.textContent = '🏠 로비로';
+    lobbyBtn.onclick = leaveGame;
+
+    container.appendChild(rematchBtn);
+    container.appendChild(lobbyBtn);
+
+    // 상태 텍스트 아래에 추가
+    if (statusText && statusText.parentNode) {
+      statusText.parentNode.insertBefore(container, statusText.nextSibling);
+    }
+  }
+
+  /**
+   * 리매치 요청
+   */
+  async function requestRematch() {
+    if (gameSubscription) {
+      await gameSubscription.send({
+        type: 'broadcast',
+        event: 'rematch_request',
+        payload: {
+          requester_id: currentPlayer.id,
+          requester_name: currentPlayer.name,
+          room_id: currentGame.id,
+          timestamp: Date.now()
+        }
+      });
+      showTempMessage('상대방에게 재대결을 요청했습니다.', 'info');
+      showRematchWaiting();
+    }
+  }
+
+  /**
+   * 리매치 대기 UI
+   */
+  function showRematchWaiting() {
+    const container = document.getElementById('rematch-options');
+    if (container) container.innerHTML = '<span>상대방 응답 대기 중...</span>';
+  }
+
+  /**
+   * 리매치 수락/거절 UI
+   */
+  function showRematchAcceptUI() {
+    const container = document.getElementById('rematch-options');
+    if (container) {
+      container.innerHTML = '';
+      const acceptBtn = document.createElement('button');
+      acceptBtn.textContent = '✅ 수락';
+      acceptBtn.onclick = acceptRematch;
+      const declineBtn = document.createElement('button');
+      declineBtn.textContent = '❌ 거절';
+      declineBtn.onclick = declineRematch;
+      container.appendChild(acceptBtn);
+      container.appendChild(declineBtn);
+    }
+  }
+
+  /**
+   * 리매치 수락
+   */
+  async function acceptRematch() {
+    if (gameSubscription) {
+      await gameSubscription.send({
+        type: 'broadcast',
+        event: 'rematch_accepted',
+        payload: {
+          accepter_id: currentPlayer.id,
+          room_id: currentGame.id,
+          timestamp: Date.now()
+        }
+      });
+      startRematch();
+    }
+  }
+
+  /**
+   * 리매치 거절
+   */
+  async function declineRematch() {
+    if (gameSubscription) {
+      await gameSubscription.send({
+        type: 'broadcast',
+        event: 'rematch_declined',
+        payload: {
+          decliner_id: currentPlayer.id,
+          room_id: currentGame.id,
+          timestamp: Date.now()
+        }
+      });
+      showTempMessage('재대결을 거절했습니다.', 'info');
+      showRematchOptions();
+    }
+  }
+
+  /**
+   * 리매치 시작
+   */
+  function startRematch() {
+    // 보드/상태 초기화
+    cells = Array(boardSize * boardSize).fill('');
+    isMyTurn = currentGame.host_id === currentPlayer.id;
+    currentGame.status = 'playing';
+    currentGame.current_turn = currentGame.host_id;
+    currentGame.winner_id = null;
+    currentGame.board_state = [...cells];
+    gameCache = {
+      board_state: [...cells],
+      moves_history: [],
+      start_time: Date.now(),
+      last_move_time: Date.now()
+    };
+    drawBoard();
+    statusText.textContent = isMyTurn ? '새 게임 시작! 당신의 턴입니다!' : '새 게임 시작! 상대방의 턴입니다...';
+    statusText.style.color = isMyTurn ? '#10b981' : '#6b7280';
+    const container = document.getElementById('rematch-options');
+    if (container) container.remove();
+  }
+
+  // --- 실시간 구독에 리매치 이벤트 추가 ---
+  if (gameSubscription) {
+    gameSubscription
+      .on('broadcast', { event: 'rematch_request' }, (payload) => {
+        if (payload.payload.requester_id !== currentPlayer.id) {
+          showTempMessage('상대방이 재대결을 요청했습니다!', 'info');
+          showRematchAcceptUI();
+        }
+      })
+      .on('broadcast', { event: 'rematch_accepted' }, (payload) => {
+        if (payload.payload.accepter_id !== currentPlayer.id) {
+          showTempMessage('상대방이 재대결을 수락했습니다!', 'success');
+          startRematch();
+        }
+      })
+      .on('broadcast', { event: 'rematch_declined' }, (payload) => {
+        if (payload.payload.decliner_id !== currentPlayer.id) {
+          showTempMessage('상대방이 재대결을 거절했습니다.', 'warning');
+          showRematchOptions();
+        }
+      });
   }
 
   // 초기화 완료 표시
@@ -1647,4 +1809,4 @@ if (!window.gameJS.initialized) {
   console.log('Game JS 초기화 완료');
 }
 
-// 테스트 
+// 테스트
