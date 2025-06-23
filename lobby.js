@@ -59,13 +59,14 @@ if (!window.lobbyJS.initialized) {
           host_id,
           guest_id,
           status,
+          created_at,
           host:host_id(name)
         `)
         .eq('status', 'waiting')  // 대기 중인 방만 가져옴
         .order('created_at', { ascending: false });  // 최신순 정렬
-      
+    
       if (error) throw error;
-      
+    
       displayRooms(rooms || []);
     } catch (error) {
       console.error('방 목록 불러오기 오류:', error);
@@ -419,7 +420,6 @@ if (!window.lobbyJS.initialized) {
     
     if (!boardSizeElement) {
       console.error('❌ board-size 요소를 찾을 수 없습니다.');
-      // board-size 요소가 없으면 선택된 크기 사용
       console.log('선택된 보드 크기 사용:', selectedBoardSize);
     }
     
@@ -447,18 +447,8 @@ if (!window.lobbyJS.initialized) {
         '방장 이름': currentPlayer.name
       });
       
-      const roomData = {
-        name: roomName,
-        host_id: currentPlayer.id,
-        guest_id: null, // 명시적으로 null 설정
-        board_size: boardSize,
-        status: 'waiting',
-        current_turn: null, // 게임 시작 전에는 null
-        board_state: Array(boardSize * boardSize).fill(''),
-        winner_id: null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
+      // 안전한 데이터 생성 함수 사용
+      const roomData = createSafeRoomData(roomName, boardSize, currentPlayer.id);
       
       console.log('📝 방 생성 데이터:', roomData);
       
@@ -544,15 +534,14 @@ if (!window.lobbyJS.initialized) {
       
       console.log('✅ 방 참여 가능 확인 완료');
       
-      // 방에 참여 (게스트로 등록하고 동시에 게임 시작)
-      const updateData = {
+      // 안전한 업데이트 데이터 생성
+      const updateData = createSafeUpdateData({
         guest_id: currentPlayer.id,
         status: 'playing',
         current_turn: room.host_id, // 방장이 항상 첫 턴
-        board_state: Array(room.board_size * room.board_size).fill(''),
-        updated_at: new Date().toISOString()
-      };
-      
+        board_state: Array(room.board_size * room.board_size).fill('')
+      });
+
       console.log('🔄 방 업데이트 데이터:', updateData);
       
       const { data: updatedRoom, error } = await supabase
@@ -576,7 +565,7 @@ if (!window.lobbyJS.initialized) {
         .select('*')
         .eq('id', updatedRoom.host_id)
         .single();
-      
+    
       // 게임 화면으로 전환
       const gameRoom = {
         ...updatedRoom,
@@ -651,6 +640,69 @@ if (!window.lobbyJS.initialized) {
     console.log('보드 크기 설정됨:', size);
   }
 
+  /**
+   * 안전한 방 데이터 생성 (테이블 스키마에 맞춤)
+   */
+  function createSafeRoomData(roomName, boardSize, hostId) {
+    return {
+      name: roomName,
+      host_id: hostId,
+      guest_id: null,
+      board_size: boardSize,
+      status: 'waiting',
+      current_turn: null,
+      board_state: Array(boardSize * boardSize).fill(''),
+      winner_id: null
+      // created_at은 자동 생성되므로 포함하지 않음
+    };
+  }
+
+  /**
+   * 안전한 방 업데이트 데이터 생성
+   */
+  function createSafeUpdateData(updates) {
+    const allowedFields = [
+      'name', 'board_size', 'host_id', 'guest_id', 
+      'current_turn', 'status', 'board_state', 'winner_id'
+    ];
+    
+    const safeData = {};
+    for (const field of allowedFields) {
+      if (updates.hasOwnProperty(field)) {
+        safeData[field] = updates[field];
+      }
+    }
+    
+    return safeData;
+  }
+
+  /**
+   * 디버깅: 테이블 구조 확인
+   */
+  async function debugTableStructure() {
+    try {
+      const { data, error } = await supabase
+        .from('rooms')
+        .select('*')
+        .limit(1);
+      
+      if (error) throw error;
+      
+      if (data && data.length > 0) {
+        console.log('🔍 rooms 테이블 구조 (샘플 데이터):', Object.keys(data[0]));
+      } else {
+        console.log('📝 rooms 테이블이 비어있습니다.');
+      }
+    } catch (error) {
+      console.error('테이블 구조 확인 오류:', error);
+    }
+  }
+
+  // 개발 모드에서만 실행
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    debugTableStructure();
+  }
+
   // 페이지 언로드 시 구독 정리
   window.addEventListener('beforeunload', () => {
     if (roomSubscription) {
@@ -668,6 +720,7 @@ if (!window.lobbyJS.initialized) {
   }
 
   if (refreshRoomsButton) {
+    refreshRoomsButton.addEventListener('click', loadRooms);
     refreshRoomsButton.addEventListener('click', loadRooms);
   } else {
     console.warn('⚠️ refresh-rooms 요소를 찾을 수 없습니다.');
