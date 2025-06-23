@@ -128,16 +128,11 @@ if (!window.lobbyJS.initialized) {
       roomSubscription = supabase
         .channel(channelId)
         .on('postgres_changes', 
-          { 
-            event: '*', 
-            schema: 'public', 
-            table: 'rooms'
-          },
+          { event: '*', schema: 'public', table: 'rooms' },
           (payload) => {
             console.log('실시간 방 목록 업데이트 수신:', payload);
             
             try {
-              // payload.eventType에 따라 처리
               if (payload.eventType === 'INSERT') {
                 console.log('새 방 추가:', payload.new);
                 addRoomToList(payload.new);
@@ -145,27 +140,29 @@ if (!window.lobbyJS.initialized) {
                 console.log('방 정보 업데이트:', payload.new);
                 updateRoomInList(payload.new);
                 
-                // 내가 참여중인 방인 경우 - 상대방이 참여했으면 알림
-                if (currentGame && currentGame.id === payload.new.id) {
-                  if (payload.new.guest_id && !currentGame.guest_id) {
-                    console.log('상대방이 입장했습니다!', payload.new);
-                    currentGame = payload.new; // 게임 상태 업데이트
-                    
-                    // 게임 시작 알림
-                    showNotification('상대방이 입장했습니다! 게임을 시작합니다.');
-                    
-                    // 잠시 후 게임 화면으로 전환
-                    setTimeout(() => {
-                      startGame(payload.new);
-                    }, 1000);
-                  }
-                }
-                
-                // 내가 초대받은 방인 경우 - 게임 상태 변경
-                if (payload.new.guest_id === currentPlayer.id && payload.new.status === 'playing') {
-                  console.log('게임이 시작되었습니다.', payload.new);
-                  currentGame = payload.new; // 게임 상태 업데이트
-                  startGame(payload.new);
+                // 내가 호스트인 방에 게스트가 참여한 경우
+                if (currentPlayer && payload.new.host_id === currentPlayer.id && 
+                    payload.new.guest_id && payload.new.status === 'playing') {
+                  console.log('✅ 내 방에 게스트가 참여하고 게임이 시작되었습니다!');
+                  
+                  // 게스트 정보 가져오기
+                  supabase
+                    .from('players')
+                    .select('*')
+                    .eq('id', payload.new.guest_id)
+                    .single()
+                    .then(({ data: guest }) => {
+                      const updatedRoom = {
+                        ...payload.new,
+                        host: currentPlayer,
+                        guest: guest
+                      };
+                      
+                      showNotification('상대방이 입장했습니다! 게임을 시작합니다.');
+                      setTimeout(() => {
+                        startGame(updatedRoom);
+                      }, 1000);
+                    });
                 }
               } else if (payload.eventType === 'DELETE') {
                 console.log('방 삭제:', payload.old);

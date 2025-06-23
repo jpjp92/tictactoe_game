@@ -130,25 +130,6 @@ input {
   box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.3);
 }
 
-.player {
-  padding: 10px 16px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(10px);
-  transition: all 0.3s;
-}
-
-.player.active {
-  background: rgba(255, 255, 255, 0.6);
-  box-shadow: 0 0 15px rgba(99, 102, 241, 0.3);
-  transform: scale(1.05);
-}
-
-.player.winner {
-  background: linear-gradient(to right, #fef9c3, #fcd34d);
-  box-shadow: 0 0 20px rgba(252, 211, 77, 0.5);
-}
-
 /* 상태 텍스트 애니메이션 */
 #status {
   transition: all 0.3s ease;
@@ -163,6 +144,13 @@ input {
 .cell.disabled {
   cursor: not-allowed;
   opacity: 0.6;
+}
+
+/* 승자 하이라이트 */
+.player-info.winner {
+  background-color: rgba(34, 197, 94, 0.2);
+  border-color: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.3);
 }
 
 /* 반응형 스타일 */
