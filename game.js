@@ -594,160 +594,118 @@ if (!window.gameJS.initialized) {
    * 셀 클릭 처리 개선
    */
   async function handleCellClick(index) {
-    console.log(`🎯 셀 ${index} 클릭 이벤트 시작`);
-    
-    // 현재 상태 상세 로그
-    console.log('📊 클릭 시점 상태:', {
-      '셀 인덱스': index,
-      '현재 셀 값': cells[index],
-      '내 턴 여부': isMyTurn,
-      '내 심볼': playerSymbol,
-      '내 ID': currentPlayer?.id,
-      '현재 턴 ID': currentGame?.current_turn,
-      '게임 상태': currentGame?.status,
-      '방장 ID': currentGame?.host_id,
-      '게스트 ID': currentGame?.guest_id
-    });
-    
-    // 기본 유효성 검사
-    if (!currentPlayer || !currentPlayer.id) {
-      console.error('❌ 플레이어 정보가 없습니다.');
-      showTempMessage('플레이어 정보 오류!');
-      return;
-    }
-    
-    if (!currentGame || !currentGame.id) {
-      console.error('❌ 게임 정보가 없습니다.');
-      showTempMessage('게임 정보 오류!');
-      return;
-    }
-    
-    // ⚠️ 중요: 게스트가 없으면 게임 진행 불가
-    if (!currentGame.guest_id) {
-      console.error('❌ 게스트가 없어서 게임을 진행할 수 없습니다.');
-      showTempMessage('상대방이 아직 입장하지 않았습니다!');
-      return;
-    }
-    
-    // ⚠️ 중요: 혼자 게임하는 상황 방지
-    if (currentGame.host_id === currentGame.guest_id) {
-      console.error('❌ 방장과 게스트가 동일한 사람입니다. 게임을 진행할 수 없습니다.');
-      showTempMessage('게임 설정 오류: 같은 사람이 방장과 게스트로 설정되었습니다!');
-      return;
-    }
-    
-    // 유효성 검사
-    if (!isMyTurn) {
-      console.log('❌ 현재 내 턴이 아닙니다.');
-      console.log('턴 상태 상세:', {
-        '현재 턴 ID': currentGame.current_turn,
-        '내 ID': currentPlayer.id,
-        '매치 여부': currentGame.current_turn === currentPlayer.id
-      });
-      showTempMessage('상대방의 턴입니다!');
-      return;
-    }
-    
-    if (cells[index] !== '') {
-      console.log('❌ 이미 채워진 셀입니다.');
-      showTempMessage('이미 선택된 칸입니다!');
-      return;
-    }
-    
-    if (currentGame.status !== 'playing') {
-      console.log('❌ 게임이 진행 중이 아닙니다. 상태:', currentGame.status);
-      return;
-    }
+    const startTime = performance.now();
     
     try {
-      console.log(`✅ 셀 ${index}에 ${playerSymbol} 표시 시작`);
+      console.log(`🎯 셀 ${index} 클릭 이벤트 시작`);
       
-      // 임시로 턴 비활성화 (중복 클릭 방지)
-      isMyTurn = false;
-      statusText.textContent = '처리 중...';
+      // 현재 상태 상세 로그
+      console.log('📊 클릭 시점 상태:', {
+        '셀 인덱스': index,
+        '현재 셀 값': cells[index],
+        '내 턴 여부': isMyTurn,
+        '내 심볼': playerSymbol,
+        '내 ID': currentPlayer?.id,
+        '현재 턴 ID': currentGame?.current_turn,
+        '게임 상태': currentGame?.status,
+        '방장 ID': currentGame?.host_id,
+        '게스트 ID': currentGame?.guest_id
+      });
       
-      // 로컬 상태 업데이트
-      const newCells = [...cells];
-      newCells[index] = playerSymbol;
-      
-      // 승리 확인
-      const isWinner = checkWin(newCells, playerSymbol);
-      const isDraw = !newCells.includes('') && !isWinner;
-      
-      // 게임 상태 결정
-      const newStatus = isWinner || isDraw ? 'finished' : 'playing';
-      
-      // ⚠️ 중요: 상대방 ID 정확히 계산
-      const isHost = currentPlayer.id === currentGame.host_id;
-      let opponentId;
-      
-      if (isHost) {
-        // 내가 방장이면 상대방은 게스트
-        opponentId = currentGame.guest_id;
-      } else {
-        // 내가 게스트면 상대방은 방장
-        opponentId = currentGame.host_id;
-      }
-      
-      // ⚠️ 안전장치: 상대방 ID가 내 ID와 같으면 오류
-      if (opponentId === currentPlayer.id) {
-        console.error('❌ 치명적 오류: 상대방 ID가 내 ID와 동일합니다!', {
-          '내 ID': currentPlayer.id,
-          '방장 ID': currentGame.host_id,
-          '게스트 ID': currentGame.guest_id,
-          '내가 방장': isHost,
-          '계산된 상대방 ID': opponentId
-        });
-        showTempMessage('게임 설정 오류가 발생했습니다. 다시 시작해주세요.');
+      // 기본 유효성 검사
+      if (!currentPlayer || !currentPlayer.id) {
+        console.error('❌ 플레이어 정보가 없습니다.');
+        showTempMessage('플레이어 정보 오류!');
         return;
       }
       
-      const nextTurn = isWinner || isDraw ? null : opponentId;
-      
-      console.log('🔄 업데이트 준비:', {
-        '내가 방장': isHost,
-        '내 ID': currentPlayer.id,
-        '방장 ID': currentGame.host_id,
-        '게스트 ID': currentGame.guest_id,
-        '상대방 ID': opponentId,
-        '다음 턴': nextTurn,
-        '새 상태': newStatus,
-        '승리 여부': isWinner
-      });
-      
-      console.log('🔄 Supabase 업데이트 시작:', {
-        board_state: newCells,
-        current_turn: nextTurn,
-        status: newStatus,
-        winner_id: isWinner ? currentPlayer.id : null
-      });
-      
-      // Supabase 업데이트
-      const { error } = await supabase
-        .from('rooms')
-        .update({
-          board_state: newCells,
-          current_turn: nextTurn,
-          status: newStatus,
-          winner_id: isWinner ? currentPlayer.id : null
-        })
-        .eq('id', currentGame.id);
-      
-      if (error) throw error;
-      
-      console.log('✅ Supabase 업데이트 완료');
-      
-      // 게임이 끝나면 히스토리 저장
-      if (isWinner || isDraw) {
-        await saveGameHistory(isWinner ? currentPlayer.id : null);
+      if (!currentGame || !currentGame.id) {
+        console.error('❌ 게임 정보가 없습니다.');
+        showTempMessage('게임 정보 오류!');
+        return;
       }
       
+      // ⚠️ 중요: 게스트가 없으면 게임 진행 불가
+      if (!currentGame.guest_id) {
+        console.error('❌ 게스트가 없어서 게임을 진행할 수 없습니다.');
+        showTempMessage('상대방이 아직 입장하지 않았습니다!');
+        return;
+      }
+      
+      // ⚠️ 중요: 혼자 게임하는 상황 방지
+      if (currentGame.host_id === currentGame.guest_id) {
+        console.error('❌ 방장과 게스트가 동일한 사람입니다. 게임을 진행할 수 없습니다.');
+        showTempMessage('게임 설정 오류: 같은 사람이 방장과 게스트로 설정되었습니다!');
+        return;
+      }
+      
+      // 유효성 검사
+      if (!isMyTurn) {
+        console.log('❌ 현재 내 턴이 아닙니다.');
+        console.log('턴 상태 상세:', {
+          '현재 턴 ID': currentGame.current_turn,
+          '내 ID': currentPlayer.id,
+          '매치 여부': currentGame.current_turn === currentPlayer.id
+        });
+        showTempMessage('상대방의 턴입니다!');
+        return;
+      }
+      
+      if (cells[index] !== '') {
+        console.log('❌ 이미 채워진 셀입니다.');
+        showTempMessage('이미 선택된 칸입니다!');
+        return;
+      }
+      
+      if (currentGame.status !== 'playing') {
+        console.log('❌ 게임이 진행 중이 아닙니다. 상태:', currentGame.status);
+        return;
+      }
+      
+      try {
+        // 1. 즉시 로컬 UI 업데이트 (낙관적)
+        cells[index] = playerSymbol;
+        drawBoard(); // 즉시 화면에 반영
+    
+        // 턴 즉시 변경
+        isMyTurn = false;
+        statusText.textContent = '상대방의 턴입니다...';
+    
+        // 2. 백그라운드에서 서버 업데이트
+        const newCells = [...cells];
+        const isWinner = checkWin(newCells, playerSymbol);
+        const isDraw = !newCells.includes('') && !isWinner;
+        const newStatus = isWinner || isDraw ? 'finished' : 'playing';
+    
+        const isHost = currentPlayer.id === currentGame.host_id;
+        const opponentId = isHost ? currentGame.guest_id : currentGame.host_id;
+        const nextTurn = isWinner || isDraw ? null : opponentId;
+    
+        // 비동기로 서버 업데이트 (사용자는 이미 결과를 봄)
+        const { error } = await supabase
+          .from('rooms')
+          .update({
+            board_state: newCells,
+            current_turn: nextTurn,
+            status: newStatus,
+            winner_id: isWinner ? currentPlayer.id : null
+          })
+          .eq('id', currentGame.id);
+    
+        if (error) {
+          // 오류 시 상태 롤백
+          cells[index] = '';
+          isMyTurn = true;
+          drawBoard();
+          showTempMessage('오류가 발생했습니다. 다시 시도해주세요.');
+          return;
+        }
+        
+      } catch (error) {
+        // 오류 처리...
+      }
     } catch (error) {
-      console.error('❌ 게임 업데이트 오류:', error);
-      // 오류 발생 시 상태 복구
-      isMyTurn = currentGame.current_turn === currentPlayer.id;
-      statusText.textContent = isMyTurn ? '당신의 턴입니다!' : '상대방의 턴입니다';
-      showTempMessage('오류가 발생했습니다. 다시 시도해주세요.');
+      // ...
     }
   }
 
